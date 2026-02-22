@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id            Int             @id @default(autoincrement())
+  email         String          @unique @db.VarChar(100)
+  password_hash String
+  role          String          @db.VarChar(20)
+  district_id   Int?
+  is_active     Boolean?        @default(true)
+  created_at    DateTime?       @default(now()) @db.Timestamp(6)
+  audit_logs    audit_logs[]
+  opex_items    opex_items[]
+  opex_projects opex_projects[]
+  user_profiles user_profiles?
+  districts     districts?      @relation(fields: [district_id], references: [id])
+}
+
+model user_profiles {
+  id            Int       @id @default(autoincrement())
+  user_id       Int       @unique
+  full_name     String    @db.VarChar(150)
+  position      String    @db.VarChar(100)
+  nip           String?   @db.VarChar(50)
+  phone_number  String    @db.VarChar(30)
+  nik_ktp       String    @db.VarChar(20)
+  ktp_scan_path String
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+  users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model opex_projects {
+  id           Int          @id @default(autoincrement())
+  project_name String       @db.VarChar(150)
+  description  String?
+  start_date   DateTime?    @db.Date
+  end_date     DateTime?    @db.Date
+  status       String?      @default("DRAFT") @db.VarChar(20)
+  created_by   Int?
+  created_at   DateTime?    @default(now()) @db.Timestamp(6)
+  opex_items   opex_items[]
+  users        users?       @relation(fields: [created_by], references: [id])
+}
+
+model opex_items {
+  id               Int            @id @default(autoincrement())
+  project_id       Int?
+  district_id      Int
+  group_view_id    Int?
+  item_name        String         @db.VarChar(150)
+  category         String?        @db.VarChar(100)
+  recipient_name   String?        @db.VarChar(150)
+  amount           Decimal?       @db.Decimal(15, 2)
+  transaction_date DateTime?      @db.Date
+  status           String?        @default("DRAFT") @db.VarChar(20)
+  created_by       Int?
+  created_at       DateTime?      @default(now()) @db.Timestamp(6)
+  documents        documents[]
+  opex_receipts    opex_receipts[]
+  users            users?         @relation(fields: [created_by], references: [id])
+  opex_projects    opex_projects? @relation(fields: [project_id], references: [id])
+  districts        districts      @relation(fields: [district_id], references: [id])
+  group_views      group_views?   @relation(fields: [group_view_id], references: [id])
+}
+
+model opex_receipts {
+  id                 Int        @id @default(autoincrement())
+  opex_item_id       Int
+  file_path          String
+  ocr_detected_total Decimal?   @db.Decimal(15, 2)
+  created_at         DateTime   @default(now()) @db.Timestamp(6)
+  opex_items         opex_items @relation(fields: [opex_item_id], references: [id], onDelete: Cascade)
+}
+
+model districts {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique @db.VarChar(150)
+  created_at DateTime?   @default(now()) @db.Timestamp(6)
+  users      users[]
+  opex_items opex_items[]
+}
+
+model group_views {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique @db.VarChar(150)
+  created_at DateTime?   @default(now()) @db.Timestamp(6)
+  opex_items opex_items[]
+}
+
+
+
+model documents {
+  id           Int           @id @default(autoincrement())
+  opex_item_id Int?
+  file_path    String
+  file_type    String?       @db.VarChar(50)
+  uploaded_at  DateTime?     @default(now()) @db.Timestamp(6)
+  opex_items   opex_items?   @relation(fields: [opex_item_id], references: [id])
+  ocr_results  ocr_results[]
+}
+
+model ocr_results {
+  id               Int        @id @default(autoincrement())
+  document_id      Int?
+  extracted_text   String?
+  parsed_amount    Decimal?   @db.Decimal(15, 2)
+  parsed_date      DateTime?  @db.Date
+  confidence_score Decimal?   @db.Decimal(5, 2)
+  created_at       DateTime?  @default(now()) @db.Timestamp(6)
+  documents        documents? @relation(fields: [document_id], references: [id])
+}
+
+model audit_logs {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  action     String?   @db.VarChar(100)
+  entity     String?   @db.VarChar(50)
+  entity_id  Int?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  users      users?    @relation(fields: [user_id], references: [id])
+}

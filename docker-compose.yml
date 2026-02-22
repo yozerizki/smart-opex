@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: smartopex
+      POSTGRES_PASSWORD: smartopex
+      POSTGRES_DB: smartopex
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: npm run start:dev
+    environment:
+      DATABASE_URL: postgresql://smartopex:smartopex@db:5432/smartopex
+      REDIS_URL: redis://redis:6379
+      FRONTEND_ORIGIN: http://localhost:5173
+      OCR_PYTHON: /opt/venv/bin/python
+      OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr.py
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - uploads-data:/app/uploads
+
+  ocr-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: npm run start:ocr-worker
+    environment:
+      DATABASE_URL: postgresql://smartopex:smartopex@db:5432/smartopex
+      REDIS_URL: redis://redis:6379
+      OCR_PYTHON: /opt/venv/bin/python
+      OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr.py
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - uploads-data:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  db-data:
+  uploads-data:
