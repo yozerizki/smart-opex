@@ -7,12 +7,24 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // serve uploaded files from /uploads URL
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' })
-  // Enable CORS for local frontend dev server and allow common headers
-  const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5175'
-  const allowedOrigins = [frontendOrigin, 'http://localhost:5173', 'http://localhost:3000']
+  // Enable CORS for configured frontend origins
+  const configuredOrigins = [
+    process.env.FRONTEND_ORIGIN,
+    process.env.FRONTEND_ORIGINS,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .flatMap((value) => value.split(',').map((item) => item.trim()).filter(Boolean))
+
+  const allowAllOrigins = configuredOrigins.includes('*')
+  const allowedOrigins = [
+    ...configuredOrigins,
+    'http://localhost:5173',
+    'http://localhost:3000',
+  ]
+
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowAllOrigins || allowedOrigins.includes(origin)) {
         callback(null, true)
       } else {
         callback(new Error('CORS not allowed'))
