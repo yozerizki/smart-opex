@@ -140,7 +140,7 @@ export class OcrRunnerService {
   }
 
   private async resolveScriptPath(): Promise<string> {
-    const fallback = process.env.OCR_SCRIPT_PATH || path.join(process.cwd(), 'scripts/ocr/paddle_ocr_v3.py')
+    const fallback = process.env.OCR_SCRIPT_PATH || path.join(process.cwd(), 'scripts/ocr/paddle_ocr_dummy.py')
     const configPath = process.env.OCR_ENGINE_CONFIG_PATH || path.join(process.cwd(), 'uploads/ocr-engine/current.json')
 
     try {
