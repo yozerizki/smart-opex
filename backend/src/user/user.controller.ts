@@ -22,8 +22,22 @@ import * as bcrypt from 'bcrypt'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { UploadedFile, UseInterceptors } from '@nestjs/common'
 import { diskStorage } from 'multer'
-import { extname } from 'path'
 import * as fs from 'fs'
+import { buildUniqueFilename } from '../common/upload-filename.util'
+
+const KTP_DIR = './uploads/ktp'
+
+function createKtpStorage() {
+  return diskStorage({
+    destination: (req, file, cb) => {
+      if (!fs.existsSync(KTP_DIR)) fs.mkdirSync(KTP_DIR, { recursive: true })
+      cb(null, KTP_DIR)
+    },
+    filename: (req, file, cb) => {
+      cb(null, buildUniqueFilename(file.originalname, KTP_DIR))
+    },
+  })
+}
 
 @Controller('users')
 export class UserController {
@@ -112,18 +126,7 @@ export class UserController {
   @Patch(':id/profile')
   @UseInterceptors(
     FileInterceptor('ktp_scan', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const dir = './uploads/ktp'
-          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-          cb(null, dir)
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
-          const fileExtName = extname(file.originalname)
-          cb(null, `ktp-${uniqueSuffix}${fileExtName}`)
-        },
-      }),
+      storage: createKtpStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
