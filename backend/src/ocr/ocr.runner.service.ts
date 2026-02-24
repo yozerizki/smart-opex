@@ -22,7 +22,7 @@ export class OcrRunnerService {
 
   private async runPaddleOcr(filePath: string): Promise<OcrRunnerResult> {
     const python = process.env.OCR_PYTHON || 'python3'
-    const scriptPath = process.env.OCR_SCRIPT_PATH || path.join(process.cwd(), 'scripts/ocr/paddle_ocr.py')
+    const scriptPath = await this.resolveScriptPath()
 
     const output = await this.runProcess(python, [
       scriptPath,
@@ -48,7 +48,9 @@ export class OcrRunnerService {
       }
     }
 
-    const amount = Number.isFinite(parsed?.amount) ? Number(parsed.amount) : null
+    const amount = Number.isFinite(parsed?.grand_total) ? Number(parsed.grand_total) :
+                   Number.isFinite(parsed?.amount) ? Number(parsed.amount) : null
+    
     return {
       amount,
       currency: parsed?.currency,
@@ -135,5 +137,24 @@ export class OcrRunnerService {
         resolve(stdout)
       })
     })
+  }
+
+  private async resolveScriptPath(): Promise<string> {
+    const fallback = path.join(process.cwd(), 'scripts/ocr/paddle_ocr_dummy.py')
+    const configPath = process.env.OCR_ENGINE_CONFIG_PATH || path.join(process.cwd(), 'uploads/ocr-engine/current.json')
+
+    try {
+      const raw = await fs.readFile(configPath, 'utf8')
+      const parsed = JSON.parse(raw)
+      const candidate = parsed?.scriptPath
+      if (candidate) {
+        await fs.access(candidate)
+        return candidate
+      }
+    } catch {
+      // ignore and fallback
+    }
+
+    return fallback
   }
 }

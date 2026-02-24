@@ -23,11 +23,15 @@ services:
     environment:
       DATABASE_URL: postgresql://smartopex:smartopex@db:5432/smartopex
       REDIS_URL: redis://redis:6379
-      FRONTEND_ORIGIN: http://localhost:5173
-      OCR_PYTHON: /opt/venv/bin/python
-      OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr.py
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS}
+      OCR_PYTHON: ${OCR_PYTHON:-/usr/bin/python3}
+      # OCR_SCRIPT_PATH can be managed dynamically from web UI (uploads/ocr-engine/current.json)
+      # OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr_dummy.py
+      # OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr_v3.py
+      # OCR_PYTHON: /opt/venv/bin/python
+      OCR_SUMMARY_TEMPLATE_MODE: lenient
     ports:
-      - "3000:3000"
+      - "${API_PORT:-3000}:3000"
     depends_on:
       - db
       - redis
@@ -42,8 +46,12 @@ services:
     environment:
       DATABASE_URL: postgresql://smartopex:smartopex@db:5432/smartopex
       REDIS_URL: redis://redis:6379
-      OCR_PYTHON: /opt/venv/bin/python
-      OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr.py
+      OCR_PYTHON: ${OCR_PYTHON:-/usr/bin/python3}
+      # OCR_SCRIPT_PATH can be managed dynamically from web UI (uploads/ocr-engine/current.json)
+      # OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr_dummy.py
+      # OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr_v3.py
+      # OCR_PYTHON: /opt/venv/bin/python
+      OCR_SUMMARY_TEMPLATE_MODE: lenient
     depends_on:
       - db
       - redis
@@ -55,9 +63,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      VITE_API_URL: http://localhost:3000
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_API_PORT: ${VITE_API_PORT:-3000}
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-5173}:5173"
     depends_on:
       - api
 

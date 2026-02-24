@@ -1,6 +1,11 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: 'http://localhost:3000' })
+const fallbackApiPort = import.meta.env.VITE_API_PORT || '3000'
+const apiBaseUrl =
+  import.meta.env.VITE_API_URL ||
+  `${window.location.protocol}//${window.location.hostname}:${fallbackApiPort}`
+
+const api = axios.create({ baseURL: apiBaseUrl })
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
