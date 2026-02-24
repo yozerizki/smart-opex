@@ -32,51 +32,45 @@ export default function ManagePIC(){
   }
 
   async function createOrUpdate(){
-    if (form.role === 'verifikator') {
-      if (!form.email || (!editingId && !form.password)) {
-        return alert('Email dan password wajib diisi untuk verifikator')
-      }
-      if (!editingId) {
-        await api.post('/users', {
-          email: form.email,
-          password: form.password,
-          role: 'verifikator',
-        })
-      } else {
-        await api.patch(`/users/${editingId}`, { role: 'verifikator', district_id: null })
-      }
-    } else {
+    const isCreate = !editingId
+    if (!form.full_name) {
+      return alert('Nama wajib diisi')
+    }
+    if (isCreate && (!form.email || !form.password)) {
+      return alert('Email dan password wajib diisi')
+    }
+    if (form.role === 'pic') {
       const missingRequired =
-        !form.full_name ||
         !form.position ||
         !form.nip ||
         !form.phone_number ||
         !form.nik_ktp ||
         !form.district_id ||
-        (!editingId && !form.ktp_scan) ||
-        (!editingId && !form.email) ||
-        (!editingId && !form.password)
+        (isCreate && !form.ktp_scan)
 
       if (missingRequired) {
-        if (editingId) {
+        if (!isCreate) {
           return alert('Lengkapi semua data PIC dan unggah scan KTP')
         } else {
           return alert('Lengkapi semua data: nama, jabatan, NIP, no. HP, NIK KTP, email, password, dan scan KTP')
         }
       }
+    }
 
-      if (!editingId) {
-        const userRes = await api.post('/users', {
-          email: form.email,
-          password: form.password,
-          role: 'pic',
-          district_id: Number(form.district_id),
-        })
-        await uploadProfile(userRes.data?.id)
-      } else {
-        await api.patch(`/users/${editingId}`, { role: 'pic', district_id: Number(form.district_id) })
-        await uploadProfile(editingId)
-      }
+    if (isCreate) {
+      const userRes = await api.post('/users', {
+        email: form.email,
+        password: form.password,
+        role: form.role,
+        district_id: form.role === 'verifikator' ? null : Number(form.district_id),
+      })
+      await uploadProfile(userRes.data?.id)
+    } else {
+      await api.patch(`/users/${editingId}`, {
+        role: form.role,
+        district_id: form.role === 'verifikator' ? null : Number(form.district_id),
+      })
+      await uploadProfile(editingId)
     }
 
     setEditingId(null)
@@ -126,39 +120,46 @@ export default function ManagePIC(){
             setForm({
               ...form,
               role: nextRole,
-              district_id: nextRole === 'verifikator' ? '' : form.district_id,
             })
           }}>
             <option value="pic">PIC</option>
             <option value="verifikator">Verifikator</option>
           </select>
         </div>
-
-        {form.role === 'pic' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-            <input className="p-2 border" placeholder="Nama lengkap" value={form.full_name} onChange={e=>setForm({...form,full_name:e.target.value})} />
-            <input className="p-2 border" placeholder="Jabatan/fungsi/posisi" value={form.position} onChange={e=>setForm({...form,position:e.target.value})} />
-            <input className="p-2 border" placeholder="NIP" value={form.nip} onChange={e=>setForm({...form,nip:e.target.value})} />
-            <input className="p-2 border" placeholder="No. HP" value={form.phone_number} onChange={e=>setForm({...form,phone_number:e.target.value})} />
-            <select className="p-2 border" value={form.district_id} onChange={e=>setForm({...form,district_id: e.target.value ? Number(e.target.value) : ''})}>
-              <option value="">Pilih district</option>
-              {districts.map((d:any)=> (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-            <input className="p-2 border" placeholder="No. NIK KTP" value={form.nik_ktp} onChange={e=>setForm({...form,nik_ktp:e.target.value})} />
-            <div>
-              <label className="inline-block px-3 py-2 bg-blue-600 text-white rounded cursor-pointer text-sm">
-                upload KTP {form.ktp_scan && `(${form.ktp_scan.name})`}
-                <input type="file" accept="image/*" onChange={e=>setForm({...form,ktp_scan:e.target.files?.[0] || null})} className="hidden" />
-              </label>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+          <input className="p-2 border" placeholder="Nama lengkap" value={form.full_name} onChange={e=>setForm({...form,full_name:e.target.value})} />
+          <input className="p-2 border" placeholder="Jabatan/fungsi/posisi" value={form.position} onChange={e=>setForm({...form,position:e.target.value})} />
+          <input className="p-2 border" placeholder="NIP" value={form.nip} onChange={e=>setForm({...form,nip:e.target.value})} />
+          <input className="p-2 border" placeholder="No. HP" value={form.phone_number} onChange={e=>setForm({...form,phone_number:e.target.value})} />
+          <select className="p-2 border" value={form.district_id} onChange={e=>setForm({...form,district_id: e.target.value ? Number(e.target.value) : ''})}>
+            <option value="">Pilih district</option>
+            {districts.map((d:any)=> (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+          <input className="p-2 border" placeholder="No. NIK KTP" value={form.nik_ktp} onChange={e=>setForm({...form,nik_ktp:e.target.value})} />
+          <div>
+            <label className="inline-block px-3 py-2 bg-blue-600 text-white rounded cursor-pointer text-sm">
+              upload KTP {form.ktp_scan && `(${form.ktp_scan.name})`}
+              <input type="file" accept="image/*" onChange={e=>setForm({...form,ktp_scan:e.target.files?.[0] || null})} className="hidden" />
+            </label>
           </div>
-        )}
+        </div>
         {!editingId && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
             <input className="p-2 border" placeholder="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} />
             <input className="p-2 border" placeholder="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} />
+          </div>
+        )}
+        {editingId && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+            <input
+              className="p-2 border"
+              placeholder="password baru (opsional)"
+              type="text"
+              value={form.password}
+              onChange={e=>setForm({...form,password:e.target.value})}
+            />
           </div>
         )}
         <div className="mt-3 flex items-center gap-2">

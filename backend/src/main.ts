@@ -16,7 +16,12 @@ async function bootstrap() {
     .flatMap((value) => value.split(',').map((item) => item.trim()).filter(Boolean))
 
   const allowAllOrigins = configuredOrigins.includes('*')
-  const allowedOrigins = [...configuredOrigins]
+  const allowedOrigins = [
+    ...configuredOrigins,
+    'http://localhost:5173',
+    'http://localhost:5175',
+    'http://localhost:3000',
+  ]
 
   app.enableCors({
     origin: (origin, callback) => {

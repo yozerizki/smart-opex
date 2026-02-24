@@ -18,7 +18,10 @@ export default function ActivityDetail(){
   const [districts, setDistricts] = useState<any[]>([])
   const [role, setRole] = useState<string>('')
   const [newReceipts, setNewReceipts] = useState<(File | null)[]>([])
+  const [newDocuments, setNewDocuments] = useState<(File | null)[]>([])
   const [deletedReceiptIds, setDeletedReceiptIds] = useState<number[]>([])
+  const [deletedDocumentIds, setDeletedDocumentIds] = useState<number[]>([])
+  const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
 
   useEffect(()=>{ if(id) fetchReview() },[id])
@@ -65,6 +68,7 @@ export default function ActivityDetail(){
         manual_total: data.amount,
         transaction_date: data.transaction_date ? String(data.transaction_date).split('T')[0] : '',
         receipts,
+        documents: data.documents || [],
         total_ocr: data.total_ocr ?? 0,
         status: data.status,
         district_id: data.district_id,
@@ -81,7 +85,9 @@ export default function ActivityDetail(){
       setTransactionDate(reviewObj.transaction_date || '')
       setDistrictId(data.district_id || '')
       setNewReceipts([])
+      setNewDocuments([])
       setDeletedReceiptIds([])
+      setDeletedDocumentIds([])
       setViewedIds([])
     }catch(e){
       console.error(e)
@@ -155,11 +161,11 @@ export default function ActivityDetail(){
                   return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                       <div className={pengeluaranPanelClass}>
-                        <label className={pengeluaranLabelClass}>Pengeluaran</label>
+                        <label className={pengeluaranLabelClass}>Total (PIC)</label>
                         <input disabled={!editing} type="number" className={`w-full p-2 border bg-transparent`} value={manualTotal as any} onChange={e=>setManualTotal(Number(e.target.value)||'')} />
                       </div>
                       <div className="p-3 rounded-md bg-green-50">
-                        <label className="block text-sm font-medium text-green-800">Hasil deteksi AI</label>
+                        <label className="block text-sm font-medium text-green-800">Total (AI)</label>
                         <div className="p-2 border bg-green-50 text-right font-medium">{review.total_ocr}</div>
                         {hasPendingOcr && (
                           <div className="text-xs text-green-700 mt-1">OCR sedang diproses...</div>
@@ -217,10 +223,23 @@ export default function ActivityDetail(){
                   </div>
                   <div>
                     {(() => {
-                      const base = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000'
-                      const relPath = d.file_path ? d.file_path.replace(/^\/+/, '') : ''
-                      const open = () => {
-                        window.open(`${base}/${relPath}`,'_blank')
+                      const open = async () => {
+                        try {
+                          const rawPath = String(d.file_path || '')
+                          const uploadsIdx = rawPath.lastIndexOf('/uploads/')
+                          const relativePath =
+                            uploadsIdx >= 0
+                              ? rawPath.slice(uploadsIdx)
+                              : rawPath.startsWith('/uploads/')
+                                ? rawPath
+                                : rawPath.startsWith('uploads/')
+                                  ? `/${rawPath}`
+                                  : `/uploads/receipts/${rawPath.split('/').pop() || ''}`
+                          const fileUrl = `${api.defaults.baseURL}${relativePath}`
+                          window.open(fileUrl, '_blank')
+                        } catch (error) {
+                          alert('Gagal membuka file nota')
+                        }
                         if(!viewedIds.includes(d.id)) setViewedIds([...viewedIds, d.id])
                       }
                       return (
@@ -274,6 +293,71 @@ export default function ActivityDetail(){
                 </div>
               </div>
             )}
+
+            <div className="mt-4">
+              <h4 className="font-medium">Dokumentasi Kegiatan</h4>
+              {(review.documents || []).length === 0 ? (
+                <div className="text-sm text-gray-500">Tidak ada dokumentasi</div>
+              ) : (
+                <ul>
+                  {review.documents.map((d:any)=> (
+                    <li key={d.id} className={`border p-2 my-1 flex justify-between items-center ${deletedDocumentIds.includes(d.id) ? 'opacity-50' : ''}`}>
+                      <div className="font-medium">{d.file_path}</div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          className="text-blue-600 underline"
+                          href={`${((import.meta as any).env?.VITE_API_URL || 'http://localhost:3000')}/${d.file_path.replace(/^\/+/, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Lihat
+                        </a>
+                        {editing && !deletedDocumentIds.includes(d.id) && (
+                          <button onClick={()=>setDeletedDocumentIds([...deletedDocumentIds, d.id])} className="px-2 py-1 text-sm border rounded text-red-600">Hapus</button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {editing && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-600">Tambah Dokumentasi</div>
+                    <button
+                      type="button"
+                      onClick={()=>setNewDocuments([...newDocuments, null])}
+                      className="px-2 py-1 text-sm border rounded"
+                    >Tambah File</button>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {newDocuments.map((file, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="border p-1 flex-1"
+                          onChange={e=>{
+                            const next = [...newDocuments]
+                            next[idx] = e.target.files?.[0] || null
+                            setNewDocuments(next)
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={()=>{
+                            const next = newDocuments.filter((_, i) => i !== idx)
+                            setNewDocuments(next)
+                          }}
+                          className="px-2 py-1 text-sm border rounded"
+                        >Hapus</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
             <div className="mt-4 flex items-center justify-end space-x-2">
             {!editing ? (
@@ -284,6 +368,8 @@ export default function ActivityDetail(){
             ) : (
               <>
                 <button onClick={async ()=>{
+                  if (saving) return
+                  setSaving(true)
                   try{
                     const currentCount = review.receipts.length
                     const addCount = newReceipts.filter(Boolean).length
@@ -302,16 +388,25 @@ export default function ActivityDetail(){
                     await api.patch(`/opex/${id}`, payload)
 
                     const filesToAdd = newReceipts.filter(Boolean) as File[]
+                    const docsToAdd = newDocuments.filter(Boolean) as File[]
                     const shouldDeleteFirst = currentCount + addCount > 10
 
                     if (shouldDeleteFirst) {
                       for (const rid of deletedReceiptIds) {
                         await api.delete(`/opex/${id}/receipts/${rid}`)
                       }
+                      for (const docId of deletedDocumentIds) {
+                        await api.delete(`/opex/${id}/documents/${docId}`)
+                      }
                       if (filesToAdd.length) {
                         const fd = new FormData()
                         filesToAdd.forEach((f) => fd.append('receipts', f))
                         await api.post(`/opex/${id}/receipts`, fd, { headers: {'Content-Type': 'multipart/form-data'} })
+                      }
+                      if (docsToAdd.length) {
+                        const fd = new FormData()
+                        docsToAdd.forEach((f) => fd.append('documents', f))
+                        await api.post(`/opex/${id}/documents`, fd, { headers: {'Content-Type': 'multipart/form-data'} })
                       }
                     } else {
                       if (filesToAdd.length) {
@@ -319,8 +414,16 @@ export default function ActivityDetail(){
                         filesToAdd.forEach((f) => fd.append('receipts', f))
                         await api.post(`/opex/${id}/receipts`, fd, { headers: {'Content-Type': 'multipart/form-data'} })
                       }
+                      if (docsToAdd.length) {
+                        const fd = new FormData()
+                        docsToAdd.forEach((f) => fd.append('documents', f))
+                        await api.post(`/opex/${id}/documents`, fd, { headers: {'Content-Type': 'multipart/form-data'} })
+                      }
                       for (const rid of deletedReceiptIds) {
                         await api.delete(`/opex/${id}/receipts/${rid}`)
+                      }
+                      for (const docId of deletedDocumentIds) {
+                        await api.delete(`/opex/${id}/documents/${docId}`)
                       }
                     }
 
@@ -329,17 +432,24 @@ export default function ActivityDetail(){
                     alert('Perubahan tersimpan')
                   }catch(err:any){
                     alert(err?.response?.data?.message || 'Gagal menyimpan')
+                  }finally{
+                    setSaving(false)
                   }
-                }} className="px-4 py-2 bg-blue-600 text-white rounded">Simpan</button>
+                }} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60">Simpan</button>
                 <button onClick={()=>{
+                  if (saving) return
                   // cancel edits: revert to review values
                   setItemName(review.item_name || '')
                   setManualTotal(review.manual_total ?? '')
                   setGroupViewId(review.group_view_id || '')
                   setRecipientName(review.recipient_name || '')
                   if(review.transaction_date) setTransactionDate(review.transaction_date)
+                  setDeletedReceiptIds([])
+                  setDeletedDocumentIds([])
+                  setNewReceipts([])
+                  setNewDocuments([])
                   setEditing(false)
-                }} className="px-4 py-2 border rounded">Batal</button>
+                }} disabled={saving} className="px-4 py-2 border rounded disabled:opacity-60">Batal</button>
               </>
             )}
           </div>

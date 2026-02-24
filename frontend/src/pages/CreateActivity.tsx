@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 
 export default function CreateActivity(){
   const [itemName, setItemName] = useState('')
-  const [manualTotal, setManualTotal] = useState(0)
+  const [manualTotal, setManualTotal] = useState<number | ''>('')
   const [groupViewId, setGroupViewId] = useState<number | ''>('')
   const [groupViews, setGroupViews] = useState<any[]>([])
   const [recipientName, setRecipientName] = useState('')
@@ -17,6 +17,7 @@ export default function CreateActivity(){
   const [errorMsg, setErrorMsg] = useState('')
   const nav = useNavigate()
   const [receipts, setReceipts] = useState<(File | null)[]>([null])
+  const [documents, setDocuments] = useState<(File | null)[]>([])
 
   React.useEffect(() => {
     async function bootstrap(){
@@ -52,7 +53,7 @@ export default function CreateActivity(){
       return
     }
     // validate required fields
-    if(!itemName || !manualTotal || !groupViewId || !transactionDate || !recipientName){
+    if(!itemName || manualTotal === '' || !groupViewId || !transactionDate || !recipientName){
       setErrorMsg('Data harus diisi lengkap')
       return
     }
@@ -78,6 +79,7 @@ export default function CreateActivity(){
       fd.append('recipient_name', recipientName)
       if (role === 'verifikator' && districtId) fd.append('district_id', String(districtId))
       selectedReceipts.forEach((file) => fd.append('receipts', file))
+      documents.filter(Boolean).forEach((file) => fd.append('documents', file as File))
 
       const res = await api.post('/opex', fd, { headers: {'Content-Type': 'multipart/form-data'} })
       nav(`/activity/${res.data.id}`)
@@ -96,7 +98,21 @@ export default function CreateActivity(){
         <label className="block text-sm">Nama Kegiatan</label>
         <input className={`w-full p-2 border ${!itemName && errorMsg? 'border-red-600':''}`} placeholder="Nama kegiatan" value={itemName} onChange={e=>setItemName(e.target.value)} />
         <label className="block text-sm">Pengeluaran</label>
-        <input className={`w-full p-2 border ${!manualTotal && errorMsg? 'border-red-600':''}`} placeholder="Pengeluaran" type="number" value={manualTotal} onChange={e=>setManualTotal(Number(e.target.value))} />
+        <input
+          className={`w-full p-2 border ${manualTotal === '' && errorMsg ? 'border-red-600' : ''}`}
+          placeholder="Pengeluaran"
+          type="number"
+          value={manualTotal}
+          onFocus={(e) => {
+            if (e.currentTarget.value === '0') {
+              setManualTotal('')
+            }
+          }}
+          onChange={e=>{
+            const value = e.target.value
+            setManualTotal(value === '' ? '' : Number(value))
+          }}
+        />
         <label className="block text-sm">District</label>
         {role === 'verifikator' ? (
           <select className="w-full p-2 border" value={districtId} onChange={e=>setDistrictId(e.target.value ? Number(e.target.value) : '')}>
@@ -159,6 +175,45 @@ export default function CreateActivity(){
                 )}
               </div>
             ))}
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium">Dokumentasi Kegiatan (opsional)</h4>
+            <button
+              type="button"
+              onClick={()=>setDocuments([...documents, null])}
+              className="px-2 py-1 text-sm border rounded"
+            >Tambah File</button>
+          </div>
+          <div className="mt-2 space-y-2">
+            {documents.map((file, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="border p-1 flex-1"
+                  onChange={e=>{
+                    const next = [...documents]
+                    next[idx] = e.target.files?.[0] || null
+                    setDocuments(next)
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={()=>{
+                    const next = documents.filter((_, i) => i !== idx)
+                    setDocuments(next)
+                  }}
+                  className="px-2 py-1 text-sm border rounded"
+                >Hapus</button>
+              </div>
+            ))}
+            {documents.length > 0 && (
+              <div className="mt-2 text-sm text-gray-600">
+                {documents.filter(Boolean).map((f) => (f as File).name).join(', ')}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center space-x-2">

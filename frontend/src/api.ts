@@ -1,9 +1,8 @@
 import axios from 'axios'
 
-const fallbackApiPort = import.meta.env.VITE_API_PORT || '3000'
 const apiBaseUrl =
   import.meta.env.VITE_API_URL ||
-  `${window.location.protocol}//${window.location.hostname}:${fallbackApiPort}`
+  `${window.location.protocol}//${window.location.hostname}:3000`
 
 const api = axios.create({ baseURL: apiBaseUrl })
 

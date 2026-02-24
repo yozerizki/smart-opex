@@ -13,7 +13,7 @@
 ## Environment Variables
 - `REDIS_URL` or `REDIS_HOST`/`REDIS_PORT`
 - `OCR_PYTHON` (optional, default: `python3`)
-- `OCR_SCRIPT_PATH` (optional, default: `scripts/ocr/paddle_ocr.py`)
+- `OCR_SCRIPT_PATH` (optional, default: `scripts/ocr/paddle_ocr_v3.py`)
 
 ## Python Dependencies
 Install requirements for OCR worker:

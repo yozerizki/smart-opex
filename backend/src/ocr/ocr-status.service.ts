@@ -13,17 +13,24 @@ export class OcrStatusService {
     const sum = receipts.reduce((acc, r) => acc + Number(r.ocr_detected_total || 0), 0)
     const pending = receipts.some((r) => r.ocr_detected_total === null)
 
-    if (pending) {
-      return { sum, pending: true }
-    }
-
     const activity = await this.prisma.opex_items.findUnique({ where: { id: opexItemId } })
     if (!activity) {
       return { sum, pending: false }
     }
 
     if (activity.status === 'TELAH_DIREVIEW') {
-      return { sum, pending: false, status: activity.status }
+      await this.prisma.opex_items.update({
+        where: { id: opexItemId },
+        data: { status: 'PERLU_REVIEW' },
+      })
+      if (pending) {
+        return { sum, pending: true, status: 'PERLU_REVIEW' }
+      }
+      return { sum, pending: false, status: 'PERLU_REVIEW' }
+    }
+
+    if (pending) {
+      return { sum, pending: true }
     }
 
     const manual = Number(activity.amount || 0)

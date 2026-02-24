@@ -35,6 +35,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         role: user.role,
+        district_id: user.district_id,
+        district: user.districts,
         profile: user.user_profiles,
       },
     }

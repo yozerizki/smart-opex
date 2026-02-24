@@ -134,12 +134,11 @@ export class UserController {
   ) {
     const existing = await this.userService.findProfileByUserId(id)
     const isCreate = !existing
+    const owner = await this.userService.findById(id)
+    const isVerifikator = owner?.role === 'verifikator'
     const missingRequired =
       !body.full_name ||
-      !body.position ||
-      !body.phone_number ||
-      !body.nik_ktp ||
-      (isCreate && !file)
+      (!isVerifikator && (!body.position || !body.phone_number || !body.nik_ktp || (isCreate && !file)))
 
     if (isCreate && missingRequired) {
       throw new BadRequestException('Profile data is incomplete')
@@ -153,5 +152,16 @@ export class UserController {
       nik_ktp: body.nik_ktp,
       ktp_scan_path: file?.path,
     })
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/password')
+  async updateMyPassword(@Req() req: any, @Body() body: { password: string }) {
+    const userId = req.user?.userId || req.user?.sub
+    if (!body.password) {
+      throw new BadRequestException('Password is required')
+    }
+    const hash = await bcrypt.hash(body.password, 10)
+    return this.userService.updateUser(userId, { passwordHash: hash })
   }
 }

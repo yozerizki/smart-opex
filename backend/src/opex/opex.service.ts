@@ -4,7 +4,7 @@ import { OcrService } from '../ocr/ocr.service'
 import { OcrStatusService } from '../ocr/ocr-status.service'
 import { CreateOpexDto } from './dto/create-opex.dto'
 import { UpdateOpexDto } from './dto/update-opex.dto'
-import ExcelJS from 'exceljs'
+import * as fs from 'fs'
 
 @Injectable()
 export class OpexService {
@@ -69,6 +69,21 @@ export class OpexService {
       receipts.push({ receipt, document })
     }
     return receipts
+  }
+
+  async addDocuments(opexId: number, files: Express.Multer.File[]) {
+    const documents = [] as any[]
+    for (const file of files) {
+      const document = await this.prisma.documents.create({
+        data: {
+          opex_item_id: opexId,
+          file_path: file.path,
+          file_type: file.mimetype,
+        },
+      })
+      documents.push(document)
+    }
+    return documents
   }
 
   recomputeOcrStatus(opexId: number) {
@@ -148,23 +163,24 @@ export class OpexService {
       orderBy: { created_at: 'desc' },
     })
 
-    const workbook = new ExcelJS.Workbook()
-    const sheet = workbook.addWorksheet('Smart OPEX')
-
-    // Title rows: PIC name and PR number
     const picName = user?.user_profiles?.full_name || 'PIC'
-    sheet.addRow([`PIC: ${picName}`])
     const prNumber = `PR-${Date.now()}-${Math.floor(Math.random() * 10000)}`
-    sheet.addRow([`PR Number: ${prNumber}`])
-    sheet.addRow([])
+    const escapeCsv = (value: unknown) => {
+      const text = value == null ? '' : String(value)
+      if (!/[",\n\r]/.test(text)) return text
+      return `"${text.replace(/"/g, '""')}"`
+    }
 
-    // Header
-    sheet.addRow(['ID', 'Transaction Date', 'Item Name', 'Group View', 'Manual Total', 'Total OCR', 'Status'])
+    const rows: Array<Array<string | number>> = []
+    rows.push([`PIC: ${picName}`])
+    rows.push([`PR Number: ${prNumber}`])
+    rows.push([])
+    rows.push(['ID', 'Transaction Date', 'Item Name', 'Group View', 'Manual Total', 'Total OCR', 'Status'])
 
     for (const a of activities) {
       const totalOcr = a.opex_receipts.reduce((acc, r) => acc + Number(r.ocr_detected_total || 0), 0)
 
-      sheet.addRow([
+      rows.push([
         a.id,
         a.transaction_date ? a.transaction_date.toISOString().split('T')[0] : '',
         a.item_name,
@@ -175,21 +191,15 @@ export class OpexService {
       ])
     }
 
-    // auto width
-    for (const col of sheet.columns || []) {
-      if (!col) continue
-      let max = 10
-      if (typeof col.eachCell === 'function') {
-        col.eachCell({ includeEmpty: true } as any, (cell: any) => {
-          const v = cell.value ? String(cell.value) : ''
-          if (v.length > max) max = v.length
-        })
-      }
-      col.width = Math.min(Math.max(max + 2, 10), 50)
-    }
+    const csv = rows
+      .map((row) => row.map((value) => escapeCsv(value)).join(','))
+      .join('\n')
 
-    const buffer = await workbook.xlsx.writeBuffer()
-    return { buffer, filename: `smart-opex-${userId}-${Date.now()}.xlsx` }
+    return {
+      buffer: Buffer.from(csv, 'utf8'),
+      filename: `smart-opex-${userId}-${Date.now()}.csv`,
+      contentType: 'text/csv; charset=utf-8',
+    }
   }
 
 
@@ -219,12 +229,42 @@ export class OpexService {
   findOne(id: number) {
     return this.prisma.opex_items.findUnique({
       where: { id },
-      include: { opex_receipts: true, users: true, districts: true, group_views: true },
+      include: {
+        opex_receipts: true,
+        documents: {
+          where: {
+            OR: [
+              { file_path: { contains: 'uploads/documents' } },
+              { file_path: { contains: '/uploads/documents' } },
+            ],
+          },
+        },
+        users: true,
+        districts: true,
+        group_views: true,
+      },
     }).then((item) => {
       if (!item) return null
       const total_ocr = (item.opex_receipts || []).reduce((acc: number, r: any) => acc + Number(r.ocr_detected_total || 0), 0)
       return { ...item, total_ocr }
     })
+  }
+
+  async deleteDocument(opexId: number, documentId: number) {
+    const document = await this.prisma.documents.findUnique({ where: { id: documentId } })
+    if (!document || document.opex_item_id !== opexId) return null
+
+    await this.prisma.ocr_results.deleteMany({ where: { document_id: documentId } })
+
+    if (document.file_path && document.file_path.includes('/uploads/documents') && fs.existsSync(document.file_path)) {
+      try {
+        await fs.promises.unlink(document.file_path)
+      } catch {
+        // ignore file unlink failure
+      }
+    }
+
+    return this.prisma.documents.delete({ where: { id: documentId } })
   }
 
   async update(id: number, data: UpdateOpexDto) {

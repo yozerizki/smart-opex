@@ -13,7 +13,7 @@ import {
   BadRequestException,
   Query,
 } from '@nestjs/common'
-import { FilesInterceptor } from '@nestjs/platform-express'
+import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express'
 import { UploadedFiles, UseInterceptors } from '@nestjs/common'
 import { diskStorage } from 'multer'
 import { extname } from 'path'
@@ -61,7 +61,7 @@ export class OpexController {
   async export(@Req() req: any, @Res() res: Response) {
     const userId = req.user?.userId || req.user?.sub
     const result = await this.service.exportForUser(userId)
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Type', result.contentType || 'application/octet-stream')
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`)
     res.send(result.buffer)
   }
@@ -101,33 +101,45 @@ export class OpexController {
   @UseGuards(JwtAuthGuard)
   @Post()
   @UseInterceptors(
-    FilesInterceptor('receipts', 10, {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const dir = './uploads/receipts'
-          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-          cb(null, dir)
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
-          const fileExtName = extname(file.originalname)
-          cb(null, `${file.fieldname}-${uniqueSuffix}${fileExtName}`)
-        },
-      }),
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
+    FileFieldsInterceptor(
+      [
+        { name: 'receipts', maxCount: 10 },
+        { name: 'documents', maxCount: 10 },
+      ],
+      {
+        storage: diskStorage({
+          destination: (req, file, cb) => {
+            const dir = file.fieldname === 'documents' ? './uploads/documents' : './uploads/receipts'
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+            cb(null, dir)
+          },
+          filename: (req, file, cb) => {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
+            const fileExtName = extname(file.originalname)
+            cb(null, `${file.fieldname}-${uniqueSuffix}${fileExtName}`)
+          },
+        }),
+        limits: { fileSize: 10 * 1024 * 1024 },
+      },
+    ),
   )
   async create(
     @Req() req: any,
     @Body() body: CreateOpexDto,
-    @UploadedFiles() files: Express.Multer.File[],
+    @UploadedFiles()
+    files: {
+      receipts?: Express.Multer.File[]
+      documents?: Express.Multer.File[]
+    },
   ) {
     const userId = req.user?.userId || req.user?.sub
     const user = await this.userService.findById(userId)
     if (!user) throw new ForbiddenException('User not found')
 
-    if (!files || files.length === 0) throw new BadRequestException('At least 1 receipt is required')
-    if (files.length > 10) throw new BadRequestException('Maximum receipts is 10')
+    const receiptFiles = files?.receipts || []
+    const documentFiles = files?.documents || []
+    if (receiptFiles.length === 0) throw new BadRequestException('At least 1 receipt is required')
+    if (receiptFiles.length > 10) throw new BadRequestException('Maximum receipts is 10')
 
     if ((body as any).group_view_id === undefined || (body as any).group_view_id === null) {
       throw new BadRequestException('group_view_id is required')
@@ -158,7 +170,10 @@ export class OpexController {
     data.group_view_id = groupViewId
 
     const created = await this.service.create(data)
-    await this.service.addReceipts(created.id, files)
+    await this.service.addReceipts(created.id, receiptFiles)
+    if (documentFiles.length > 0) {
+      await this.service.addDocuments(created.id, documentFiles)
+    }
     return this.service.findOne(created.id)
   }
 
@@ -250,6 +265,45 @@ export class OpexController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post(':id/documents')
+  @UseInterceptors(
+    FilesInterceptor('documents', 10, {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const dir = './uploads/documents'
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+          cb(null, dir)
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
+          const fileExtName = extname(file.originalname)
+          cb(null, `${file.fieldname}-${uniqueSuffix}${fileExtName}`)
+        },
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  async addDocuments(
+    @Req() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    const userId = req.user?.userId || req.user?.sub
+    const user = await this.userService.findById(userId)
+    const activity = await this.service.findOne(id)
+    if (!activity) throw new ForbiddenException('Activity not found')
+    if (!user) throw new ForbiddenException('User not found')
+    if (user.role === 'pic' && user.district_id !== activity.district_id) {
+      throw new ForbiddenException('Not allowed to add documents to this activity')
+    }
+
+    if (!files || files.length === 0) throw new BadRequestException('At least 1 document is required')
+
+    await this.service.addDocuments(id, files)
+    return this.service.findOne(id)
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Delete(':id/receipts/:receiptId')
   async removeReceipt(
     @Req() req: any,
@@ -271,6 +325,27 @@ export class OpexController {
     const deleted = await this.service.deleteReceipt(id, receiptId)
     if (!deleted) throw new BadRequestException('Receipt not found')
     await this.service.recomputeOcrStatus(id)
+    return this.service.findOne(id)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/documents/:documentId')
+  async removeDocument(
+    @Req() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('documentId', ParseIntPipe) documentId: number,
+  ) {
+    const userId = req.user?.userId || req.user?.sub
+    const user = await this.userService.findById(userId)
+    const activity = await this.service.findOne(id)
+    if (!activity) throw new ForbiddenException('Activity not found')
+    if (!user) throw new ForbiddenException('User not found')
+    if (user.role === 'pic' && user.district_id !== activity.district_id) {
+      throw new ForbiddenException('Not allowed to remove documents from this activity')
+    }
+
+    const deleted = await this.service.deleteDocument(id, documentId)
+    if (!deleted) throw new BadRequestException('Document not found')
     return this.service.findOne(id)
   }
 }

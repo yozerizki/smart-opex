@@ -23,7 +23,7 @@ export class OcrProcessor extends WorkerHost {
 
     try {
       const result = await this.runner.runReceiptOcr(filePath)
-      detected = Number.isFinite(result.amount) ? Number(result.amount) : null
+      detected = Number.isFinite(result.amount) ? Number(result.amount) : 0
       rawText = result.rawText
       confidence = result.confidence
     } catch (err) {
@@ -33,7 +33,9 @@ export class OcrProcessor extends WorkerHost {
     try {
       await this.prisma.opex_receipts.update({
         where: { id: receiptId },
-        data: { ocr_detected_total: detected },
+        data: { 
+          ocr_detected_total: detected,
+        },
       })
     } catch (err) {
       console.warn(`Receipt ${receiptId} no longer exists; skipping OCR update`)

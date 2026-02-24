@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq'
 import { OcrService } from './ocr.service'
 import { OcrStatusService } from './ocr-status.service'
 import { PrismaModule } from '../prisma/prisma.module'
+import { OcrEngineController } from './ocr-engine.controller'
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PrismaModule } from '../prisma/prisma.module'
     }),
   ],
   providers: [OcrService, OcrStatusService],
+  controllers: [OcrEngineController],
   exports: [OcrService, OcrStatusService],
 })
 export class OcrModule {}

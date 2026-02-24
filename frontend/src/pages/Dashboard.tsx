@@ -163,8 +163,8 @@ export default function Dashboard(){
             <th className="p-2">Group View</th>
             <th className="p-2">District</th>
             <th className="p-2">Nama Toko / Penerima</th>
-            <th className="p-2">Pengeluaran</th>
-            <th className="p-2">Total OCR</th>
+            <th className="p-2">Total (PIC)</th>
+            <th className="p-2">Total (AI)</th>
             <th className="p-2">Status</th>
             <th className="p-2">Aksi</th>
           </tr>
