@@ -14,6 +14,7 @@ model users {
   password_hash String
   role          String          @db.VarChar(20)
   district_id   Int?
+  area_id       Int?
   is_active     Boolean?        @default(true)
   created_at    DateTime?       @default(now()) @db.Timestamp(6)
   audit_logs    audit_logs[]
@@ -21,6 +22,7 @@ model users {
   opex_projects opex_projects[]
   user_profiles user_profiles?
   districts     districts?      @relation(fields: [district_id], references: [id])
+  areas         areas?          @relation(fields: [area_id], references: [id])
 }
 
 model user_profiles {
@@ -82,10 +84,33 @@ model opex_receipts {
 
 model districts {
   id         Int         @id @default(autoincrement())
-  name       String      @unique @db.VarChar(150)
+  name       String      @db.VarChar(150)
+  area_id    Int
   created_at DateTime?   @default(now()) @db.Timestamp(6)
+  areas      areas       @relation(fields: [area_id], references: [id])
   users      users[]
   opex_items opex_items[]
+
+  @@unique([area_id, name])
+}
+
+model regions {
+  id         Int        @id @default(autoincrement())
+  name       String     @unique @db.VarChar(150)
+  created_at DateTime?  @default(now()) @db.Timestamp(6)
+  areas      areas[]
+}
+
+model areas {
+  id         Int         @id @default(autoincrement())
+  region_id  Int
+  name       String      @db.VarChar(150)
+  created_at DateTime?   @default(now()) @db.Timestamp(6)
+  regions    regions     @relation(fields: [region_id], references: [id])
+  districts  districts[]
+  users      users[]
+
+  @@unique([region_id, name])
 }
 
 model group_views {

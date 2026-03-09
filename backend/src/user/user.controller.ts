@@ -37,59 +37,139 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('verifikator', 'pusat')
   @Get()
-  findAll() {
-    return this.userService.findAll()
+  async findAll(@Req() req: any) {
+    const actorId = req.user?.userId || req.user?.sub
+    const actor = await this.userService.findById(actorId)
+    if (!actor) throw new BadRequestException('User not found')
+    return this.userService.findAll(actor)
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('verifikator', 'pusat')
   @Post()
-  async create(@Body() body: CreateUserDto) {
+  async create(@Req() req: any, @Body() body: CreateUserDto) {
+    const actorId = req.user?.userId || req.user?.sub
+    const actor = await this.userService.findById(actorId)
+    if (!actor) throw new BadRequestException('User not found')
+
     const role = body.role?.toLowerCase()
-    if (role !== 'pic' && role !== 'verifikator') {
+    if (role !== 'pic' && role !== 'verifikator' && role !== 'pusat') {
       throw new BadRequestException('Invalid role')
     }
+
+    if (role === 'pusat' && actor.role !== 'pusat') {
+      throw new BadRequestException('Only pusat can create pusat account')
+    }
+
     if (role === 'pic' && !body.district_id) {
       throw new BadRequestException('district_id is required for PIC')
     }
+
     if (role === 'verifikator' && body.district_id) {
       throw new BadRequestException('district_id must be null for verifikator')
     }
-    if (body.district_id) {
-      const district = await this.userService.findDistrictById(body.district_id)
-      if (!district) throw new BadRequestException('Invalid district_id')
+    if (role === 'pusat' && (body.district_id || body.area_id)) {
+      throw new BadRequestException('pusat must not have district_id or area_id')
     }
+
+    if (role === 'pic' && body.district_id) {
+      const canAssignDistrict = await this.userService.assertActorCanAssignDistrict(actor, body.district_id)
+      if (!canAssignDistrict.ok) throw new BadRequestException(canAssignDistrict.reason)
+    }
+
+    let areaId: number | null = null
+    if (role === 'verifikator') {
+      if (actor.role === 'pusat') {
+        if (!body.area_id) throw new BadRequestException('area_id is required for verifikator')
+        const canAssignArea = await this.userService.assertActorCanAssignArea(actor, body.area_id)
+        if (!canAssignArea.ok) throw new BadRequestException(canAssignArea.reason)
+        areaId = body.area_id
+      } else {
+        if (!actor.area_id) throw new BadRequestException('Your account is not mapped to an area')
+        areaId = actor.area_id
+      }
+    }
+
     const hash = await bcrypt.hash(body.password, 10)
     return this.userService.createUser({
       email: body.email,
       passwordHash: hash,
       role,
       district_id: body.district_id ?? null,
+      area_id: areaId,
     })
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('verifikator', 'pusat')
   @Patch(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateUserDto) {
+  async update(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: UpdateUserDto) {
+    const actorId = req.user?.userId || req.user?.sub
+    const actor = await this.userService.findById(actorId)
+    if (!actor) throw new BadRequestException('User not found')
+
     const existing = await this.userService.findById(id)
     if (!existing) throw new BadRequestException('User not found')
+
+    if (actor.role === 'verifikator') {
+      const sameAreaVerifikator = existing.role === 'verifikator' && existing.area_id === actor.area_id
+      const sameAreaPic = existing.role === 'pic' && existing.districts?.area_id === actor.area_id
+      if (!sameAreaVerifikator && !sameAreaPic) {
+        throw new BadRequestException('User is outside your area')
+      }
+      if (existing.role === 'pusat') {
+        throw new BadRequestException('Not allowed to update pusat account')
+      }
+    }
+
     const role = body.role ? body.role.toLowerCase() : existing.role
-    if (role !== 'pic' && role !== 'verifikator') {
+    if (role !== 'pic' && role !== 'verifikator' && role !== 'pusat') {
       throw new BadRequestException('Invalid role')
     }
+
+    if (role === 'pusat' && actor.role !== 'pusat') {
+      throw new BadRequestException('Only pusat can assign pusat role')
+    }
+
     if (role === 'pic' && body.district_id === null) {
       throw new BadRequestException('district_id is required for PIC')
     }
+
     if (role === 'verifikator' && body.district_id) {
       throw new BadRequestException('district_id must be null for verifikator')
     }
-    if (body.district_id) {
-      const district = await this.userService.findDistrictById(body.district_id)
-      if (!district) throw new BadRequestException('Invalid district_id')
+    if (role === 'pusat' && (body.district_id || body.area_id)) {
+      throw new BadRequestException('pusat must not have district_id or area_id')
     }
+
+    if (body.district_id) {
+      const canAssignDistrict = await this.userService.assertActorCanAssignDistrict(actor, body.district_id)
+      if (!canAssignDistrict.ok) throw new BadRequestException(canAssignDistrict.reason)
+    }
+
+    let areaId: number | null | undefined = undefined
+    if (role === 'verifikator') {
+      if (actor.role === 'pusat') {
+        if (body.area_id) {
+          const canAssignArea = await this.userService.assertActorCanAssignArea(actor, body.area_id)
+          if (!canAssignArea.ok) throw new BadRequestException(canAssignArea.reason)
+          areaId = body.area_id
+        }
+      } else {
+        areaId = actor.area_id ?? null
+      }
+    }
+
+    if (role === 'pic') {
+      areaId = null
+    }
+
+    if (role === 'pusat') {
+      areaId = null
+    }
+
     let passwordHash: string | undefined
     if (body.password) passwordHash = await bcrypt.hash(body.password, 10)
     return this.userService.updateUser(id, {
@@ -97,18 +177,37 @@ export class UserController {
       passwordHash,
       role,
       district_id: body.district_id ?? undefined,
+      area_id: areaId,
     })
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('verifikator', 'pusat')
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
+  async remove(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+    const actorId = req.user?.userId || req.user?.sub
+    const actor = await this.userService.findById(actorId)
+    if (!actor) throw new BadRequestException('User not found')
+
+    const existing = await this.userService.findById(id)
+    if (!existing) throw new BadRequestException('User not found')
+
+    if (actor.role === 'verifikator') {
+      const sameAreaVerifikator = existing.role === 'verifikator' && existing.area_id === actor.area_id
+      const sameAreaPic = existing.role === 'pic' && existing.districts?.area_id === actor.area_id
+      if (!sameAreaVerifikator && !sameAreaPic) {
+        throw new BadRequestException('User is outside your area')
+      }
+      if (existing.role === 'pusat') {
+        throw new BadRequestException('Not allowed to delete pusat account')
+      }
+    }
+
     return this.userService.removeUser(id)
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('verifikator', 'pusat')
   @Patch(':id/profile')
   @UseInterceptors(
     FileInterceptor('ktp_scan', {
@@ -135,7 +234,7 @@ export class UserController {
     const existing = await this.userService.findProfileByUserId(id)
     const isCreate = !existing
     const owner = await this.userService.findById(id)
-    const isVerifikator = owner?.role === 'verifikator'
+    const isVerifikator = owner?.role === 'verifikator' || owner?.role === 'pusat'
     const missingRequired =
       !body.full_name ||
       (!isVerifikator && (!body.position || !body.phone_number || !body.nik_ktp || (isCreate && !file)))

@@ -57,7 +57,7 @@ export default function CreateActivity(){
       setErrorMsg('Data harus diisi lengkap')
       return
     }
-    if (role === 'verifikator' && !districtId) {
+    if (role !== 'pic' && !districtId) {
       setErrorMsg('District harus dipilih')
       return
     }
@@ -77,7 +77,7 @@ export default function CreateActivity(){
       fd.append('group_view_id', String(groupViewId))
       fd.append('transaction_date', transactionDate)
       fd.append('recipient_name', recipientName)
-      if (role === 'verifikator' && districtId) fd.append('district_id', String(districtId))
+      if (role !== 'pic' && districtId) fd.append('district_id', String(districtId))
       selectedReceipts.forEach((file) => fd.append('receipts', file))
       documents.filter(Boolean).forEach((file) => fd.append('documents', file as File))
 
@@ -114,7 +114,7 @@ export default function CreateActivity(){
           }}
         />
         <label className="block text-sm">District</label>
-        {role === 'verifikator' ? (
+        {role !== 'pic' ? (
           <select className="w-full p-2 border" value={districtId} onChange={e=>setDistrictId(e.target.value ? Number(e.target.value) : '')}>
             <option value="">Pilih district</option>
             {districts.map((d:any)=> (

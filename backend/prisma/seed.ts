@@ -6,22 +6,46 @@ const prisma = new PrismaClient()
 async function main() {
   const passwordHash = await bcrypt.hash('password123', 10)
 
-  const districtArea = await prisma.districts.upsert({
-    where: { name: 'Area' },
+  const region = await prisma.regions.upsert({
+    where: { name: 'Region X' },
     update: {},
-    create: { name: 'Area' },
+    create: { name: 'Region X' },
+  })
+
+  const areaA = await prisma.areas.upsert({
+    where: { region_id_name: { region_id: region.id, name: 'Area A' } },
+    update: {},
+    create: { region_id: region.id, name: 'Area A' },
+  })
+
+  const areaB = await prisma.areas.upsert({
+    where: { region_id_name: { region_id: region.id, name: 'Area B' } },
+    update: {},
+    create: { region_id: region.id, name: 'Area B' },
+  })
+
+  const districtArea = await prisma.districts.upsert({
+    where: { area_id_name: { area_id: areaA.id, name: 'District i' } },
+    update: {},
+    create: { name: 'District i', area_id: areaA.id },
   })
 
   const district1 = await prisma.districts.upsert({
-    where: { name: 'District 1' },
+    where: { area_id_name: { area_id: areaA.id, name: 'District ii' } },
     update: {},
-    create: { name: 'District 1' },
+    create: { name: 'District ii', area_id: areaA.id },
   })
 
   const district2 = await prisma.districts.upsert({
-    where: { name: 'District 2' },
+    where: { area_id_name: { area_id: areaB.id, name: 'District j' } },
     update: {},
-    create: { name: 'District 2' },
+    create: { name: 'District j', area_id: areaB.id },
+  })
+
+  await prisma.districts.upsert({
+    where: { area_id_name: { area_id: areaB.id, name: 'District jj' } },
+    update: {},
+    create: { name: 'District jj', area_id: areaB.id },
   })
 
   await prisma.group_views.upsert({
@@ -47,11 +71,31 @@ async function main() {
     update: {
       password_hash: passwordHash,
       role: 'verifikator',
+      area_id: areaA.id,
+      district_id: null,
     },
     create: {
       email: 'verifikator@smartopex.local',
       password_hash: passwordHash,
       role: 'verifikator',
+      area_id: areaA.id,
+    },
+  })
+
+  await prisma.users.upsert({
+    where: { email: 'pusat@smartopex.local' },
+    update: {
+      password_hash: passwordHash,
+      role: 'pusat',
+      district_id: null,
+      area_id: null,
+    },
+    create: {
+      email: 'pusat@smartopex.local',
+      password_hash: passwordHash,
+      role: 'pusat',
+      district_id: null,
+      area_id: null,
     },
   })
 

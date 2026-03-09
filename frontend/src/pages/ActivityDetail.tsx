@@ -128,7 +128,7 @@ export default function ActivityDetail(){
               </div>
               <div>
                 <label className="block text-sm font-medium">District</label>
-                {role === 'verifikator' && editing ? (
+                {role !== 'pic' && editing ? (
                   <select className="w-full p-2 border" value={districtId} onChange={e=>setDistrictId(e.target.value ? Number(e.target.value) : '')}>
                     <option value="">Pilih district</option>
                     {districts.map((d:any)=> (
@@ -384,7 +384,7 @@ export default function ActivityDetail(){
                       return
                     }
                     const payload:any = { item_name: itemName, group_view_id: groupViewId, transaction_date: transactionDate, recipient_name: recipientName, manual_total: manualTotal }
-                    if (role === 'verifikator' && districtId) payload.district_id = districtId
+                    if (role !== 'pic' && districtId) payload.district_id = districtId
                     await api.patch(`/opex/${id}`, payload)
 
                     const filesToAdd = newReceipts.filter(Boolean) as File[]

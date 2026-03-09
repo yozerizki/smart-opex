@@ -17,7 +17,7 @@ export class GroupViewController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('verifikator', 'pusat')
   @Post()
   async create(@Body() body: CreateGroupViewDto) {
     if (!body.name || !body.name.trim()) throw new BadRequestException('name is required')
@@ -25,7 +25,7 @@ export class GroupViewController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('verifikator', 'pusat')
   @Put(':id')
   async update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateGroupViewDto) {
     if (!body.name || !body.name.trim()) throw new BadRequestException('name is required')
@@ -33,7 +33,7 @@ export class GroupViewController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('verifikator', 'pusat')
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id)

@@ -6,15 +6,19 @@ export default function Dashboard(){
   const [items, setItems] = useState<any[]>([])
   const [filterMonth, setFilterMonth] = useState<string>(() => new Date().toISOString().slice(0,7))
   const [filterStatus, setFilterStatus] = useState<string>('')
+  const [filterRegion, setFilterRegion] = useState<string>('')
+  const [filterArea, setFilterArea] = useState<string>('')
   const [filterDistrict, setFilterDistrict] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [itemsFetched, setItemsFetched] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [role, setRole] = useState('')
+  const [regions, setRegions] = useState<any[]>([])
+  const [areas, setAreas] = useState<any[]>([])
   const [districts, setDistricts] = useState<any[]>([])
   const navigate = useNavigate()
 
-  useEffect(()=>{ fetchItems() },[filterDistrict, role])
+  useEffect(()=>{ fetchItems() },[filterRegion, filterArea, filterDistrict, role])
   useEffect(()=>{
     async function bootstrap(){
       try{
@@ -24,7 +28,14 @@ export default function Dashboard(){
         // ignore
       }
       try{
-        const res = await api.get('/districts')
+        const [regionRes, areaRes, districtRes] = await Promise.all([
+          api.get('/districts/regions'),
+          api.get('/districts/areas'),
+          api.get('/districts'),
+        ])
+        setRegions(regionRes.data)
+        setAreas(areaRes.data)
+        const res = districtRes
         setDistricts(res.data)
       }catch(e){
         // ignore
@@ -38,7 +49,9 @@ export default function Dashboard(){
     setItemsFetched(false)
     try{
       const params: any = {}
-      if (role === 'verifikator' && filterDistrict) params.district_id = filterDistrict
+      if (filterRegion) params.region_id = filterRegion
+      if (filterArea) params.area_id = filterArea
+      if (filterDistrict) params.district_id = filterDistrict
       const res = await api.get('/opex', { params })
       setItems(res.data)
       setItemsFetched(true)
@@ -50,6 +63,32 @@ export default function Dashboard(){
       setItemsFetched(true)
       throw err
     }finally{ setLoading(false) }
+  }
+
+  async function onChangeRegion(nextRegion: string) {
+    setFilterRegion(nextRegion)
+    setFilterArea('')
+    setFilterDistrict('')
+
+    const areaRes = await api.get('/districts/areas', {
+      params: nextRegion ? { region_id: nextRegion } : undefined,
+    })
+    setAreas(areaRes.data)
+
+    const districtRes = await api.get('/districts', {
+      params: nextRegion ? { region_id: nextRegion } : undefined,
+    })
+    setDistricts(districtRes.data)
+  }
+
+  async function onChangeArea(nextArea: string) {
+    setFilterArea(nextArea)
+    setFilterDistrict('')
+
+    const districtRes = await api.get('/districts', {
+      params: nextArea ? { area_id: nextArea } : (filterRegion ? { region_id: filterRegion } : undefined),
+    })
+    setDistricts(districtRes.data)
   }
 
   async function remove(id:number){
@@ -140,13 +179,29 @@ export default function Dashboard(){
         <div className="flex items-center space-x-2">
           <label className="text-sm">Bulan</label>
           <input type="month" value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} className="p-1 border" />
-          {role === 'verifikator' && (
-            <select value={filterDistrict} onChange={e=>setFilterDistrict(e.target.value)} className="p-1 border">
-              <option value="">All Districts</option>
-              {districts.map((d:any)=> (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+          {(role === 'verifikator' || role === 'pusat') && (
+            <>
+              {role === 'pusat' && (
+                <select value={filterRegion} onChange={e=>onChangeRegion(e.target.value)} className="p-1 border">
+                  <option value="">Semua Region</option>
+                  {regions.map((r:any)=> (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              )}
+              <select value={filterArea} onChange={e=>onChangeArea(e.target.value)} className="p-1 border">
+                <option value="">{role === 'pusat' ? 'Semua Area' : 'Area Saya'}</option>
+                {areas.map((a:any)=> (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+              <select value={filterDistrict} onChange={e=>setFilterDistrict(e.target.value)} className="p-1 border">
+                <option value="">Semua District</option>
+                {districts.map((d:any)=> (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </>
           )}
           <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="p-1 border">
             <option value="">Semua Status</option>
@@ -177,7 +232,7 @@ export default function Dashboard(){
               <td className="p-2">{i.transaction_date ? new Date(i.transaction_date).toLocaleDateString() : '-'}</td>
               <td className="p-2">{i.item_name || '-'}</td>
               <td className="p-2">{i.group_views?.name || '-'}</td>
-              <td className="p-2">{i.districts?.name || '-'}</td>
+              <td className="p-2">{i.districts?.areas?.regions?.name || '-'} / {i.districts?.areas?.name || '-'} / {i.districts?.name || '-'}</td>
               <td className="p-2">{i.recipient_name || '-'}</td>
               <td className="p-2">{i.amount ?? '-'}</td>
               <td className="p-2">

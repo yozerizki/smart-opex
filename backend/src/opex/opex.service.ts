@@ -205,7 +205,7 @@ export class OpexService {
 
   findAll() {
     return this.prisma.opex_items.findMany({
-      include: { opex_receipts: true, districts: true, group_views: true },
+      include: { opex_receipts: true, districts: { include: { areas: { include: { regions: true } } } }, group_views: true },
       orderBy: { created_at: 'desc' },
     }).then((items) => this.withReceiptTotal(items))
   }
@@ -213,15 +213,23 @@ export class OpexService {
   findAllByDistrict(districtId: number) {
     return this.prisma.opex_items.findMany({
       where: { district_id: districtId },
-      include: { opex_receipts: true, districts: true, group_views: true },
+      include: { opex_receipts: true, districts: { include: { areas: { include: { regions: true } } } }, group_views: true },
       orderBy: { created_at: 'desc' },
     }).then((items) => this.withReceiptTotal(items))
   }
 
-  findAllWithOptionalDistrict(districtId?: number) {
+  findAllWithFilters(filters?: { region_id?: number; area_id?: number; district_id?: number }) {
+    const where: any = {}
+    if (filters?.district_id) where.district_id = filters.district_id
+    if (filters?.area_id) where.districts = { is: { area_id: filters.area_id } }
+    if (filters?.region_id) {
+      const base = where.districts?.is || {}
+      where.districts = { is: { ...base, areas: { is: { region_id: filters.region_id } } } }
+    }
+
     return this.prisma.opex_items.findMany({
-      where: districtId ? { district_id: districtId } : undefined,
-      include: { opex_receipts: true, districts: true, group_views: true },
+      where: Object.keys(where).length ? where : undefined,
+      include: { opex_receipts: true, districts: { include: { areas: { include: { regions: true } } } }, group_views: true },
       orderBy: { created_at: 'desc' },
     }).then((items) => this.withReceiptTotal(items))
   }
@@ -240,7 +248,7 @@ export class OpexService {
           },
         },
         users: true,
-        districts: true,
+        districts: { include: { areas: { include: { regions: true } } } },
         group_views: true,
       },
     }).then((item) => {
@@ -286,7 +294,7 @@ export class OpexService {
     if ((data as any).status !== undefined) {
       return this.prisma.opex_items.findUnique({
         where: { id },
-        include: { opex_receipts: true, districts: true, group_views: true },
+        include: { opex_receipts: true, districts: { include: { areas: { include: { regions: true } } } }, group_views: true },
       })
     }
 
@@ -306,7 +314,7 @@ export class OpexService {
       // return fresh record with new status
       return this.prisma.opex_items.findUnique({
         where: { id },
-        include: { opex_receipts: true, districts: true, group_views: true },
+        include: { opex_receipts: true, districts: { include: { areas: { include: { regions: true } } } }, group_views: true },
       })
     }
 

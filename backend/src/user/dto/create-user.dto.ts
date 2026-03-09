@@ -15,6 +15,14 @@ export class CreateUserDto {
   district_id?: number
 
   @IsOptional()
+  @IsNumber()
+  area_id?: number
+
+  @IsOptional()
+  @IsNumber()
+  region_id?: number
+
+  @IsOptional()
   @IsString()
   phone_number?: string
 }

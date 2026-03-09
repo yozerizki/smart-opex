@@ -89,6 +89,8 @@ export default function App(){
   }catch(e){ storedUser = null }
   const effectiveRole = user?.role || storedUser?.role
   const isVerifikator = effectiveRole === 'verifikator'
+  const isPusat = effectiveRole === 'pusat'
+  const canManage = isVerifikator || isPusat
   const displayName =
     user?.user_profiles?.full_name ||
     storedUser?.user_profiles?.full_name ||
@@ -123,7 +125,7 @@ export default function App(){
           {!isLogin && isAuthenticated && (
             <nav className="flex items-center space-x-3">
               <Link to="/" className="text-sm text-blue-600">Dashboard</Link>
-              {isVerifikator && (
+              {canManage && (
                 <>
                   <Link to="/engine-ai" className="text-sm text-blue-600">Engine AI</Link>
                   <Link to="/manage-district" className="text-sm text-blue-600">Manage District</Link>

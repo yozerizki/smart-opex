@@ -39,7 +39,12 @@ export class OpexController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async findAll(@Req() req: any, @Query('district_id') districtId?: string) {
+  async findAll(
+    @Req() req: any,
+    @Query('region_id') regionId?: string,
+    @Query('area_id') areaId?: string,
+    @Query('district_id') districtId?: string,
+  ) {
     const userId = req.user?.userId || req.user?.sub
     const user = await this.userService.findById(userId)
     if (!user) throw new ForbiddenException('User not found')
@@ -49,11 +54,35 @@ export class OpexController {
       return this.service.findAllByDistrict(user.district_id)
     }
 
+    const parsedRegionId = regionId ? Number(regionId) : undefined
+    const parsedAreaId = areaId ? Number(areaId) : undefined
     const parsedDistrictId = districtId ? Number(districtId) : undefined
+
+    if (regionId && Number.isNaN(parsedRegionId)) {
+      throw new BadRequestException('Invalid region_id')
+    }
+    if (areaId && Number.isNaN(parsedAreaId)) {
+      throw new BadRequestException('Invalid area_id')
+    }
     if (districtId && Number.isNaN(parsedDistrictId)) {
       throw new BadRequestException('Invalid district_id')
     }
-    return this.service.findAllWithOptionalDistrict(parsedDistrictId)
+
+    if (user.role === 'verifikator') {
+      if (!user.area_id) {
+        throw new ForbiddenException('Verifikator must have area')
+      }
+      return this.service.findAllWithFilters({
+        area_id: user.area_id,
+        district_id: parsedDistrictId,
+      })
+    }
+
+    return this.service.findAllWithFilters({
+      region_id: parsedRegionId,
+      area_id: parsedAreaId,
+      district_id: parsedDistrictId,
+    })
   }
 
   @UseGuards(JwtAuthGuard)
@@ -79,6 +108,9 @@ export class OpexController {
     if (user.role === 'pic' && user.district_id !== activity.district_id) {
       throw new ForbiddenException('Not allowed to view this activity')
     }
+    if (user.role === 'verifikator' && activity.districts?.area_id !== user.area_id) {
+      throw new ForbiddenException('Not allowed to view this activity')
+    }
 
     return activity
   }
@@ -92,6 +124,9 @@ export class OpexController {
     if (!activity) throw new ForbiddenException('Activity not found')
     if (!user) throw new ForbiddenException('User not found')
     if (user.role === 'pic' && user.district_id !== activity.district_id) {
+      throw new ForbiddenException('Not allowed to view this activity')
+    }
+    if (user.role === 'verifikator' && activity.districts?.area_id !== user.area_id) {
       throw new ForbiddenException('Not allowed to view this activity')
     }
 
@@ -157,6 +192,17 @@ export class OpexController {
         throw new ForbiddenException('Not allowed to override district')
       }
       data.district_id = user.district_id
+    } else if (user.role === 'verifikator') {
+      if ((body as any).district_id === undefined || (body as any).district_id === null) {
+        throw new BadRequestException('district_id is required')
+      }
+      const districtId = Number((body as any).district_id)
+      const district = await this.userService.findDistrictById(districtId)
+      if (!district) throw new BadRequestException('Invalid district_id')
+      if (!user.area_id || district.area_id !== user.area_id) {
+        throw new ForbiddenException('District is outside your area')
+      }
+      data.district_id = districtId
     } else {
       if ((body as any).district_id === undefined || (body as any).district_id === null) {
         throw new BadRequestException('district_id is required')
@@ -193,6 +239,15 @@ export class OpexController {
       if ((body as any).district_id !== undefined) {
         throw new ForbiddenException('Not allowed to modify district')
       }
+    } else if (user.role === 'verifikator' && (body as any).district_id !== undefined) {
+      const districtId = Number((body as any).district_id)
+      const district = await this.userService.findDistrictById(districtId)
+      if (!district) throw new BadRequestException('Invalid district_id')
+      if (!user.area_id || district.area_id !== user.area_id) {
+        throw new ForbiddenException('District is outside your area')
+      }
+    } else if (user.role === 'verifikator' && activity.districts?.area_id !== user.area_id) {
+      throw new ForbiddenException('Not allowed to update this activity')
     } else if ((body as any).district_id !== undefined) {
       const districtId = Number((body as any).district_id)
       const district = await this.userService.findDistrictById(districtId)
@@ -218,6 +273,9 @@ export class OpexController {
     if (!activity) throw new ForbiddenException('Activity not found')
     if (!user) throw new ForbiddenException('User not found')
     if (user.role === 'pic' && user.district_id !== activity.district_id) {
+      throw new ForbiddenException('Not allowed to delete this activity')
+    }
+    if (user.role === 'verifikator' && activity.districts?.area_id !== user.area_id) {
       throw new ForbiddenException('Not allowed to delete this activity')
     }
     return this.service.remove(id)
@@ -253,6 +311,9 @@ export class OpexController {
     if (!activity) throw new ForbiddenException('Activity not found')
     if (!user) throw new ForbiddenException('User not found')
     if (user.role === 'pic' && user.district_id !== activity.district_id) {
+      throw new ForbiddenException('Not allowed to add receipts to this activity')
+    }
+    if (user.role === 'verifikator' && activity.districts?.area_id !== user.area_id) {
       throw new ForbiddenException('Not allowed to add receipts to this activity')
     }
 
@@ -296,6 +357,9 @@ export class OpexController {
     if (user.role === 'pic' && user.district_id !== activity.district_id) {
       throw new ForbiddenException('Not allowed to add documents to this activity')
     }
+    if (user.role === 'verifikator' && activity.districts?.area_id !== user.area_id) {
+      throw new ForbiddenException('Not allowed to add documents to this activity')
+    }
 
     if (!files || files.length === 0) throw new BadRequestException('At least 1 document is required')
 
@@ -316,6 +380,9 @@ export class OpexController {
     if (!activity) throw new ForbiddenException('Activity not found')
     if (!user) throw new ForbiddenException('User not found')
     if (user.role === 'pic' && user.district_id !== activity.district_id) {
+      throw new ForbiddenException('Not allowed to remove receipts from this activity')
+    }
+    if (user.role === 'verifikator' && activity.districts?.area_id !== user.area_id) {
       throw new ForbiddenException('Not allowed to remove receipts from this activity')
     }
 
@@ -341,6 +408,9 @@ export class OpexController {
     if (!activity) throw new ForbiddenException('Activity not found')
     if (!user) throw new ForbiddenException('User not found')
     if (user.role === 'pic' && user.district_id !== activity.district_id) {
+      throw new ForbiddenException('Not allowed to remove documents from this activity')
+    }
+    if (user.role === 'verifikator' && activity.districts?.area_id !== user.area_id) {
       throw new ForbiddenException('Not allowed to remove documents from this activity')
     }
 
