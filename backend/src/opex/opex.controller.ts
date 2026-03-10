@@ -87,9 +87,21 @@ export class OpexController {
 
   @UseGuards(JwtAuthGuard)
   @Get('export')
-  async export(@Req() req: any, @Res() res: Response) {
+  async export(
+    @Req() req: any,
+    @Res() res: Response,
+    @Query('region_id') regionId?: string,
+    @Query('area_id') areaId?: string,
+    @Query('district_id') districtId?: string,
+  ) {
     const userId = req.user?.userId || req.user?.sub
-    const result = await this.service.exportForUser(userId)
+
+    const filters: any = {}
+    if (regionId) filters.region_id = Number(regionId)
+    if (areaId) filters.area_id = Number(areaId)
+    if (districtId) filters.district_id = Number(districtId)
+
+    const result = await this.service.exportForUser(userId, filters)
     res.setHeader('Content-Type', result.contentType || 'application/octet-stream')
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`)
     res.send(result.buffer)
@@ -139,12 +151,17 @@ export class OpexController {
     FileFieldsInterceptor(
       [
         { name: 'receipts', maxCount: 10 },
+        { name: 'activity_documents', maxCount: 10 },
+        { name: 'supporting_documents', maxCount: 10 },
         { name: 'documents', maxCount: 10 },
       ],
       {
         storage: diskStorage({
           destination: (req, file, cb) => {
-            const dir = file.fieldname === 'documents' ? './uploads/documents' : './uploads/receipts'
+            let dir = './uploads/receipts'
+            if (file.fieldname === 'activity_documents') dir = './uploads/documents/activity'
+            if (file.fieldname === 'supporting_documents') dir = './uploads/documents/supporting'
+            if (file.fieldname === 'documents') dir = './uploads/documents'
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
             cb(null, dir)
           },
@@ -164,6 +181,8 @@ export class OpexController {
     @UploadedFiles()
     files: {
       receipts?: Express.Multer.File[]
+      activity_documents?: Express.Multer.File[]
+      supporting_documents?: Express.Multer.File[]
       documents?: Express.Multer.File[]
     },
   ) {
@@ -172,9 +191,29 @@ export class OpexController {
     if (!user) throw new ForbiddenException('User not found')
 
     const receiptFiles = files?.receipts || []
-    const documentFiles = files?.documents || []
+    const activityDocumentFiles = files?.activity_documents || []
+    const supportingDocumentFiles = files?.supporting_documents || []
     if (receiptFiles.length === 0) throw new BadRequestException('At least 1 receipt is required')
     if (receiptFiles.length > 10) throw new BadRequestException('Maximum receipts is 10')
+    if (activityDocumentFiles.length === 0) {
+      throw new BadRequestException('At least 1 activity documentation file is required')
+    }
+    if (supportingDocumentFiles.length === 0) {
+      throw new BadRequestException('At least 1 supporting documentation file is required')
+    }
+
+    const invalidActivityDoc = activityDocumentFiles.find(
+      (file) => !(file.mimetype?.startsWith('image/') || file.mimetype === 'application/pdf'),
+    )
+    if (invalidActivityDoc) {
+      throw new BadRequestException('Activity documentation must be image/pdf')
+    }
+    const invalidSupportingDoc = supportingDocumentFiles.find(
+      (file) => !(file.mimetype?.startsWith('image/') || file.mimetype === 'application/pdf'),
+    )
+    if (invalidSupportingDoc) {
+      throw new BadRequestException('Supporting documentation must be image/pdf')
+    }
 
     if ((body as any).group_view_id === undefined || (body as any).group_view_id === null) {
       throw new BadRequestException('group_view_id is required')
@@ -217,9 +256,8 @@ export class OpexController {
 
     const created = await this.service.create(data)
     await this.service.addReceipts(created.id, receiptFiles)
-    if (documentFiles.length > 0) {
-      await this.service.addDocuments(created.id, documentFiles)
-    }
+    await this.service.addDocuments(created.id, activityDocumentFiles)
+    await this.service.addDocuments(created.id, supportingDocumentFiles)
     return this.service.findOne(created.id)
   }
 

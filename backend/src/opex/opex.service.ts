@@ -5,6 +5,7 @@ import { OcrStatusService } from '../ocr/ocr-status.service'
 import { CreateOpexDto } from './dto/create-opex.dto'
 import { UpdateOpexDto } from './dto/update-opex.dto'
 import * as fs from 'fs'
+import * as ExcelJS from 'exceljs'
 
 @Injectable()
 export class OpexService {
@@ -152,53 +153,142 @@ export class OpexService {
     }
   }
 
-  async exportForUser(userId: number) {
-    // fetch user name
-    const user = await this.prisma.users.findUnique({ where: { id: userId }, include: { user_profiles: true } })
+  async exportForUser(
+    userId: number,
+    filters?: { region_id?: number; area_id?: number; district_id?: number }
+  ) {
+    // fetch user
+    const user = await this.prisma.users.findUnique({
+      where: { id: userId },
+      include: {
+        user_profiles: true,
+        districts: { include: { areas: { include: { regions: true } } } },
+      },
+    })
 
-    // fetch activities for this user
+    // fetch activities with filter
+    let where: any = { created_by: userId }
+    if (filters?.district_id) where.district_id = filters.district_id
+    if (filters?.area_id) where.districts = { is: { area_id: filters.area_id } }
+    if (filters?.region_id) {
+      const base = where.districts?.is || {}
+      where.districts = { is: { ...base, areas: { is: { region_id: filters.region_id } } } }
+    }
+
     const activities = await this.prisma.opex_items.findMany({
-      where: { created_by: userId },
-      include: { opex_receipts: true, group_views: true },
+      where: Object.keys(where).length > 1 ? where : { created_by: userId },
+      include: {
+        opex_receipts: true,
+        group_views: true,
+        districts: { include: { areas: { include: { regions: true } } } },
+      },
       orderBy: { created_at: 'desc' },
     })
 
+    // prepare data
     const picName = user?.user_profiles?.full_name || 'PIC'
-    const prNumber = `PR-${Date.now()}-${Math.floor(Math.random() * 10000)}`
-    const escapeCsv = (value: unknown) => {
-      const text = value == null ? '' : String(value)
-      if (!/[",\n\r]/.test(text)) return text
-      return `"${text.replace(/"/g, '""')}"`
+    const picArea = user?.districts?.areas?.name || 'N/A'
+    const now = new Date()
+    const monthName = new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(now)
+    const year = now.getFullYear()
+    const filename = `kuitansi-${userId}-${Date.now()}.xlsx`
+
+    // create workbook
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('Sheet1')
+
+    // set column widths
+    worksheet.columns = [
+      { width: 6 },   // nomor
+      { width: 30 },  // Deskripsi transaksi
+      { width: 15 },  // Group View
+      { width: 25 },  // nama toko
+      { width: 12 },  // tanggal
+      { width: 18 },  // jumlah
+    ]
+
+    // title
+    let currentRow = 1
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`)
+    const titleCell = worksheet.getCell(`A${currentRow}`)
+    titleCell.value = 'RINCIAN KUITANSI/NOTA SETTLEMENT CASH CARD'
+    titleCell.font = { bold: true, size: 12 }
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    currentRow++
+
+    // subtitle
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`)
+    const subtitleCell = worksheet.getCell(`A${currentRow}`)
+    subtitleCell.value = `Dana Operasional PT. Pertamina Gas ${picArea} Bulan ${monthName} ${year}`
+    subtitleCell.font = { bold: true, size: 11 }
+    subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    currentRow++
+
+    // lokasi
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`)
+    const lokasiCell = worksheet.getCell(`A${currentRow}`)
+    lokasiCell.value = `Lokasi: ${picArea}`
+    lokasiCell.font = { italic: true, size: 10 }
+    currentRow++
+
+    // empty row
+    currentRow++
+
+    // PIC info (left-aligned)
+    worksheet.getCell(`A${currentRow}`).value = `Nama : ${picName}`
+    currentRow++
+    worksheet.getCell(`A${currentRow}`).value = `reff ID :`
+    currentRow++
+    worksheet.getCell(`A${currentRow}`).value = `no. PR :`
+    currentRow++
+    worksheet.getCell(`A${currentRow}`).value = `no PO :`
+    currentRow++
+
+    // empty row
+    currentRow++
+
+    // table header
+    const headerRow = currentRow
+    worksheet.getCell(`A${headerRow}`).value = 'Nomor'
+    worksheet.getCell(`B${headerRow}`).value = 'Deskripsi Transaksi'
+    worksheet.getCell(`C${headerRow}`).value = 'Group View'
+    worksheet.getCell(`D${headerRow}`).value = 'Nama Toko'
+    worksheet.getCell(`E${headerRow}`).value = 'Tanggal'
+    worksheet.getCell(`F${headerRow}`).value = 'Jumlah'
+
+    // header styling
+    for (let col = 1; col <= 6; col++) {
+      const cell = worksheet.getCell(headerRow, col)
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
     }
+    currentRow++
 
-    const rows: Array<Array<string | number>> = []
-    rows.push([`PIC: ${picName}`])
-    rows.push([`PR Number: ${prNumber}`])
-    rows.push([])
-    rows.push(['ID', 'Transaction Date', 'Item Name', 'Group View', 'Manual Total', 'Total OCR', 'Status'])
+    // data rows
+    activities.forEach((activity, idx) => {
+      const dataRow = currentRow + idx
+      worksheet.getCell(`A${dataRow}`).value = idx + 1
+      worksheet.getCell(`B${dataRow}`).value = activity.item_name || ''
+      worksheet.getCell(`C${dataRow}`).value = activity.group_views?.name || ''
+      worksheet.getCell(`D${dataRow}`).value = activity.recipient_name || ''
+      worksheet.getCell(`E${dataRow}`).value = activity.transaction_date
+        ? new Date(activity.transaction_date).toLocaleDateString('id-ID')
+        : ''
+      worksheet.getCell(`F${dataRow}`).value = Number(activity.amount || 0)
 
-    for (const a of activities) {
-      const totalOcr = a.opex_receipts.reduce((acc, r) => acc + Number(r.ocr_detected_total || 0), 0)
+      // align numbers to right
+      worksheet.getCell(`F${dataRow}`).alignment = { horizontal: 'right' }
+      worksheet.getCell(`F${dataRow}`).numFmt = '#,##0'
+    })
 
-      rows.push([
-        a.id,
-        a.transaction_date ? a.transaction_date.toISOString().split('T')[0] : '',
-        a.item_name,
-        a.group_views?.name || '',
-        a.amount ? Number(a.amount) : 0,
-        totalOcr,
-        a.status || '',
-      ])
-    }
-
-    const csv = rows
-      .map((row) => row.map((value) => escapeCsv(value)).join(','))
-      .join('\n')
+    // generate buffer
+    const buffer = await workbook.xlsx.writeBuffer()
 
     return {
-      buffer: Buffer.from(csv, 'utf8'),
-      filename: `smart-opex-${userId}-${Date.now()}.csv`,
-      contentType: 'text/csv; charset=utf-8',
+      buffer: buffer as Buffer,
+      filename,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     }
   }
 

@@ -18,6 +18,12 @@ export default function Dashboard(){
   const [districts, setDistricts] = useState<any[]>([])
   const navigate = useNavigate()
 
+  function formatRupiah(value: any) {
+    const number = Number(value)
+    if (Number.isNaN(number)) return '-'
+    return number.toLocaleString('id-ID')
+  }
+
   useEffect(()=>{ fetchItems() },[filterRegion, filterArea, filterDistrict, role])
   useEffect(()=>{
     async function bootstrap(){
@@ -100,14 +106,22 @@ export default function Dashboard(){
   async function exportExcel(){
     setExporting(true)
     try{
-      const r = await api.get('/opex/export', { responseType: 'arraybuffer' })
+      const queryParams = new URLSearchParams()
+      if (filterRegion) queryParams.append('region_id', filterRegion)
+      if (filterArea) queryParams.append('area_id', filterArea)
+      if (filterDistrict) queryParams.append('district_id', filterDistrict)
+
+      const queryString = queryParams.toString()
+      const url = `/opex/export${queryString ? '?' + queryString : ''}`
+
+      const r = await api.get(url, { responseType: 'arraybuffer' })
       const blob = new Blob([r.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      const url = window.URL.createObjectURL(blob)
+      const downloadUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
-      a.download = 'smart-opex.xlsx'
+      a.href = downloadUrl
+      a.download = 'kuitansi.xlsx'
       a.click()
-      window.URL.revokeObjectURL(url)
+      window.URL.revokeObjectURL(downloadUrl)
     }finally{ setExporting(false) }
   }
 
@@ -234,10 +248,10 @@ export default function Dashboard(){
               <td className="p-2">{i.group_views?.name || '-'}</td>
               <td className="p-2">{i.districts?.areas?.regions?.name || '-'} / {i.districts?.areas?.name || '-'} / {i.districts?.name || '-'}</td>
               <td className="p-2">{i.recipient_name || '-'}</td>
-              <td className="p-2">{i.amount ?? '-'}</td>
+              <td className="p-2">{formatRupiah(i.amount)}</td>
               <td className="p-2">
                 <div className="flex items-center gap-2">
-                  <span>{i.total_ocr ?? 0}</span>
+                  <span>{formatRupiah(i.total_ocr ?? 0)}</span>
                   {(i.opex_receipts || []).some((r:any) => r.ocr_detected_total === null || r.ocr_detected_total === undefined) && (
                     <span className="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-800">OCR pending</span>
                   )}
