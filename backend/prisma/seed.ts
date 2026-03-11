@@ -88,7 +88,7 @@ async function main() {
       { region_id: regionWest.id, name: 'Operation South Sumatra Area' },
       { region_id: regionWest.id, name: 'Operation Dumai Area' },
       { region_id: regionWest.id, name: 'Operation Rokan Area' },
-      { region_id: regionWest.id, name: 'Operation West Java Area' },
+      { region_id: regionEast.id, name: 'Operation West Java Area' },
       { region_id: regionEast.id, name: 'Operation East Java Area' },
       { region_id: regionEast.id, name: 'Operation Kalimantan Area' },
     ],
