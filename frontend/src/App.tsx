@@ -90,7 +90,7 @@ export default function App(){
   const effectiveRole = user?.role || storedUser?.role
   const isVerifikator = effectiveRole === 'verifikator'
   const isPusat = effectiveRole === 'pusat'
-  const canManage = isVerifikator || isPusat
+  const canManageUsers = isVerifikator || isPusat
   const displayName =
     user?.user_profiles?.full_name ||
     storedUser?.user_profiles?.full_name ||
@@ -125,11 +125,15 @@ export default function App(){
           {!isLogin && isAuthenticated && (
             <nav className="flex items-center space-x-3">
               <Link to="/" className="text-sm text-blue-600">Dashboard</Link>
-              {canManage && (
+              {isPusat && (
                 <>
                   <Link to="/engine-ai" className="text-sm text-blue-600">Engine AI</Link>
                   <Link to="/manage-district" className="text-sm text-blue-600">Manage District</Link>
                   <Link to="/manage-group-view" className="text-sm text-blue-600">Manage Group View</Link>
+                </>
+              )}
+              {canManageUsers && (
+                <>
                   <Link to="/manage-users" className="text-sm text-blue-600">Manage Users</Link>
                 </>
               )}
@@ -150,11 +154,11 @@ export default function App(){
         <Route path="/" element={authCheck() ? <Dashboard/> : <Navigate to="/login" replace />} />
         <Route path="/create" element={authCheck() ? <CreateActivity/> : <Navigate to="/login" replace />} />
         <Route path="/activity/:id" element={authCheck() ? <ActivityDetail/> : <Navigate to="/login" replace />} />
-        <Route path="/manage-users" element={authCheck() ? <ManagePIC/> : <Navigate to="/login" replace />} />
-        <Route path="/manage-district" element={authCheck() ? <ManageDistrict/> : <Navigate to="/login" replace />} />
-        <Route path="/manage-group-view" element={authCheck() ? <ManageGroupView/> : <Navigate to="/login" replace />} />
+        <Route path="/manage-users" element={authCheck() && canManageUsers ? <ManagePIC/> : <Navigate to="/" replace />} />
+        <Route path="/manage-district" element={authCheck() && isPusat ? <ManageDistrict/> : <Navigate to="/" replace />} />
+        <Route path="/manage-group-view" element={authCheck() && isPusat ? <ManageGroupView/> : <Navigate to="/" replace />} />
         <Route path="/change-password" element={authCheck() ? <ChangePassword/> : <Navigate to="/login" replace />} />
-        <Route path="/engine-ai" element={authCheck() ? <EngineAI/> : <Navigate to="/login" replace />} />
+        <Route path="/engine-ai" element={authCheck() && isPusat ? <EngineAI/> : <Navigate to="/" replace />} />
       </Routes>
       <div style={{fontSize: '0.7rem'}} className="mt-6 text-center text-gray-400">
         developed by <a href="https://www.instagram.com/pertagasoeja" className="text-blue-600 underline">PT. Pertamina Gas Operation East Java Area (OEJA)</a> for <a href="https://pertagas.pertamina.com" target="_blank" rel="noreferrer" className="text-blue-600 underline">PT. Pertamina Gas</a> - 2026

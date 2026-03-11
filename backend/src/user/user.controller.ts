@@ -67,6 +67,20 @@ export class UserController {
       throw new BadRequestException('district_id is required for PIC')
     }
 
+    if (role === 'pic' && actor.role === 'pusat') {
+      if (!body.region_id) throw new BadRequestException('region_id is required for PIC')
+      if (!body.area_id) throw new BadRequestException('area_id is required for PIC')
+
+      const district = await this.userService.findDistrictById(body.district_id as number)
+      if (!district) throw new BadRequestException('Invalid district_id')
+      if (district.area_id !== body.area_id) {
+        throw new BadRequestException('district_id does not belong to area_id')
+      }
+      if (district.areas?.region_id !== body.region_id) {
+        throw new BadRequestException('area_id does not belong to region_id')
+      }
+    }
+
     if (role === 'verifikator' && body.district_id) {
       throw new BadRequestException('district_id must be null for verifikator')
     }
@@ -83,6 +97,14 @@ export class UserController {
     if (role === 'verifikator') {
       if (actor.role === 'pusat') {
         if (!body.area_id) throw new BadRequestException('area_id is required for verifikator')
+        if (!body.region_id) throw new BadRequestException('region_id is required for verifikator')
+
+        const area = await this.userService.findAreaById(body.area_id)
+        if (!area) throw new BadRequestException('Invalid area_id')
+        if (area.region_id !== body.region_id) {
+          throw new BadRequestException('area_id does not belong to region_id')
+        }
+
         const canAssignArea = await this.userService.assertActorCanAssignArea(actor, body.area_id)
         if (!canAssignArea.ok) throw new BadRequestException(canAssignArea.reason)
         areaId = body.area_id
@@ -137,6 +159,21 @@ export class UserController {
       throw new BadRequestException('district_id is required for PIC')
     }
 
+    if (role === 'pic' && actor.role === 'pusat') {
+      if (!body.district_id) throw new BadRequestException('district_id is required for PIC')
+      if (!body.region_id) throw new BadRequestException('region_id is required for PIC')
+      if (!body.area_id) throw new BadRequestException('area_id is required for PIC')
+
+      const district = await this.userService.findDistrictById(body.district_id)
+      if (!district) throw new BadRequestException('Invalid district_id')
+      if (district.area_id !== body.area_id) {
+        throw new BadRequestException('district_id does not belong to area_id')
+      }
+      if (district.areas?.region_id !== body.region_id) {
+        throw new BadRequestException('area_id does not belong to region_id')
+      }
+    }
+
     if (role === 'verifikator' && body.district_id) {
       throw new BadRequestException('district_id must be null for verifikator')
     }
@@ -152,11 +189,18 @@ export class UserController {
     let areaId: number | null | undefined = undefined
     if (role === 'verifikator') {
       if (actor.role === 'pusat') {
-        if (body.area_id) {
-          const canAssignArea = await this.userService.assertActorCanAssignArea(actor, body.area_id)
-          if (!canAssignArea.ok) throw new BadRequestException(canAssignArea.reason)
-          areaId = body.area_id
+        if (!body.area_id) throw new BadRequestException('area_id is required for verifikator')
+        if (!body.region_id) throw new BadRequestException('region_id is required for verifikator')
+
+        const area = await this.userService.findAreaById(body.area_id)
+        if (!area) throw new BadRequestException('Invalid area_id')
+        if (area.region_id !== body.region_id) {
+          throw new BadRequestException('area_id does not belong to region_id')
         }
+
+        const canAssignArea = await this.userService.assertActorCanAssignArea(actor, body.area_id)
+        if (!canAssignArea.ok) throw new BadRequestException(canAssignArea.reason)
+        areaId = body.area_id
       } else {
         areaId = actor.area_id ?? null
       }
@@ -223,6 +267,13 @@ export class UserController {
           cb(null, `ktp-${uniqueSuffix}${fileExtName}`)
         },
       }),
+      fileFilter: (req, file, cb) => {
+        const isImage = file.mimetype?.startsWith('image/')
+        if (!isImage) {
+          return cb(new BadRequestException('KTP scan must be an image file') as any, false)
+        }
+        cb(null, true)
+      },
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
@@ -249,7 +300,7 @@ export class UserController {
       nip: body.nip,
       phone_number: body.phone_number,
       nik_ktp: body.nik_ktp,
-      ktp_scan_path: file?.path,
+      ktp_scan_path: file?.path?.replace(/\\/g, '/'),
     })
   }
 

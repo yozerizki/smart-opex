@@ -64,7 +64,7 @@ export class OcrEngineController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('pusat')
   @Get()
   getCurrentEngine() {
     const scriptPath = this.getCurrentScriptPath()
@@ -75,7 +75,7 @@ export class OcrEngineController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('pusat')
   @Get('files')
   listFiles() {
     if (!fs.existsSync(ENGINE_DIR)) {
@@ -102,7 +102,7 @@ export class OcrEngineController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('pusat')
   @Patch('active')
   setActiveEngine(@Body() body: { fileName?: string }) {
     const fileName = (body?.fileName || '').trim()
@@ -132,7 +132,7 @@ export class OcrEngineController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator')
+  @Roles('pusat')
   @Post()
   @UseInterceptors(
     FileInterceptor('engine', {

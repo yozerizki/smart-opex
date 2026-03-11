@@ -3,6 +3,11 @@ import api from '../api'
 
 export default function ManagePIC(){
   const [actorRole, setActorRole] = useState('')
+  const [actorAreaName, setActorAreaName] = useState('')
+  const [actorScope, setActorScope] = useState<{ region_id: number | ''; area_id: number | '' }>({
+    region_id: '',
+    area_id: '',
+  })
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [regions, setRegions] = useState<any[]>([])
@@ -24,13 +29,42 @@ export default function ManagePIC(){
     role: 'pic',
   })
 
+  function buildPublicFileUrl(filePath?: string) {
+    if (!filePath) return ''
+    const apiBase = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:3000').replace(/\/+$/, '')
+    const normalized = String(filePath).replace(/\\/g, '/').replace(/^\/+/, '')
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) return normalized
+
+    const uploadsIndex = normalized.indexOf('uploads/')
+    const publicPath = uploadsIndex >= 0 ? normalized.slice(uploadsIndex) : normalized
+    return `${apiBase}/${publicPath}`
+  }
+
   useEffect(()=>{ bootstrap() },[])
 
   async function bootstrap(){
     const me = await api.get('/users/me')
-    setActorRole(me.data?.role || '')
+    const meRole = me.data?.role || ''
+    const meAreaId = me.data?.area_id || ''
+    const meRegionId = me.data?.areas?.region_id || me.data?.areas?.regions?.id || ''
+    const meAreaName = me.data?.areas?.name || ''
 
-    await Promise.all([fetchUsers(), fetchRegions(), fetchAreas(), fetchDistricts()])
+    setActorRole(meRole)
+    setActorAreaName(meAreaName)
+    setActorScope({
+      region_id: meRegionId,
+      area_id: meAreaId,
+    })
+
+    if (meRole === 'verifikator') {
+      setForm((prev)=>({
+        ...prev,
+        region_id: meRegionId,
+        area_id: meAreaId,
+      }))
+    }
+
+    await Promise.all([fetchUsers(), fetchRegions(), fetchAreas(meRegionId), fetchDistricts(meAreaId)])
   }
 
   async function fetchUsers(){
@@ -49,8 +83,9 @@ export default function ManagePIC(){
     setAreas(res.data)
   }
 
-  async function fetchDistricts(){
-    const params = form.area_id ? { area_id: form.area_id } : undefined
+  async function fetchDistricts(areaId?: number | ''){
+    const resolvedAreaId = areaId ?? form.area_id
+    const params = resolvedAreaId ? { area_id: resolvedAreaId } : undefined
     const res = await api.get('/districts', { params })
     setDistricts(res.data)
   }
@@ -63,26 +98,55 @@ export default function ManagePIC(){
 
   async function handleAreaChange(nextArea: number | ''){
     setForm({ ...form, area_id: nextArea, district_id: '' })
-    const params = nextArea ? { area_id: nextArea } : undefined
-    const res = await api.get('/districts', { params })
-    setDistricts(res.data)
+    await fetchDistricts(nextArea)
+  }
+
+  async function handleRoleChange(nextRole: string) {
+    if (actorRole === 'verifikator') {
+      setForm((prev)=>({
+        ...prev,
+        role: nextRole,
+        region_id: actorScope.region_id,
+        area_id: actorScope.area_id,
+        district_id: nextRole === 'pic' ? prev.district_id : '',
+      }))
+      if (nextRole === 'pic') {
+        await fetchDistricts(actorScope.area_id)
+      } else {
+        setDistricts([])
+      }
+      return
+    }
+
+    setForm((prev)=>({
+      ...prev,
+      role: nextRole,
+      region_id: '',
+      area_id: '',
+      district_id: '',
+    }))
+    setAreas([])
+    setDistricts([])
   }
 
   async function createOrUpdate(){
     const isCreate = !editingId
+    const isPic = form.role === 'pic'
+    const isVerifikator = form.role === 'verifikator'
+    const isActorPusat = actorRole === 'pusat'
+
     if (!form.full_name) {
       return alert('Nama wajib diisi')
     }
     if (isCreate && (!form.email || !form.password)) {
       return alert('Email dan password wajib diisi')
     }
-    if (form.role === 'pic') {
+    if (isPic) {
       const missingRequired =
         !form.position ||
         !form.nip ||
         !form.phone_number ||
         !form.nik_ktp ||
-        !form.area_id ||
         !form.district_id ||
         (isCreate && !form.ktp_scan)
 
@@ -95,16 +159,27 @@ export default function ManagePIC(){
       }
     }
 
+    if (isActorPusat && (isPic || isVerifikator) && (!form.region_id || !form.area_id)) {
+      return alert('Pilih region dan area terlebih dahulu')
+    }
+
+    if (!isActorPusat && isPic && !form.district_id) {
+      return alert('Pilih district terlebih dahulu')
+    }
+
     if (isCreate) {
       const payload: any = {
         email: form.email,
         password: form.password,
         role: form.role,
       }
-      if (form.role === 'verifikator') {
-        if (form.area_id) payload.area_id = Number(form.area_id)
-      } else if (form.role === 'pic') {
+      if (isVerifikator) {
+        if (isActorPusat && form.area_id) payload.area_id = Number(form.area_id)
+        if (isActorPusat && form.region_id) payload.region_id = Number(form.region_id)
+      } else if (isPic) {
         payload.district_id = Number(form.district_id)
+        if (isActorPusat && form.area_id) payload.area_id = Number(form.area_id)
+        if (isActorPusat && form.region_id) payload.region_id = Number(form.region_id)
       }
 
       const userRes = await api.post('/users', {
@@ -115,15 +190,19 @@ export default function ManagePIC(){
       const payload: any = {
         role: form.role,
       }
-      if (form.role === 'verifikator') {
+      if (isVerifikator) {
         payload.district_id = null
-        if (form.area_id) payload.area_id = Number(form.area_id)
-      } else if (form.role === 'pic') {
+        if (isActorPusat && form.area_id) payload.area_id = Number(form.area_id)
+        if (isActorPusat && form.region_id) payload.region_id = Number(form.region_id)
+      } else if (isPic) {
         payload.district_id = Number(form.district_id)
+        if (isActorPusat && form.area_id) payload.area_id = Number(form.area_id)
+        if (isActorPusat && form.region_id) payload.region_id = Number(form.region_id)
       } else {
         payload.district_id = null
         payload.area_id = null
       }
+      if (form.password) payload.password = form.password
       await api.patch(`/users/${editingId}`, {
         ...payload,
       })
@@ -138,8 +217,8 @@ export default function ManagePIC(){
       phone_number: '',
       nik_ktp: '',
       ktp_scan: null,
-      region_id: '',
-      area_id: '',
+      region_id: actorRole === 'verifikator' ? actorScope.region_id : '',
+      area_id: actorRole === 'verifikator' ? actorScope.area_id : '',
       district_id: '',
       email: '',
       password: '',
@@ -147,6 +226,11 @@ export default function ManagePIC(){
     })
     fetchUsers()
   }
+
+  const showPusatRegionArea = actorRole === 'pusat' && (form.role === 'pic' || form.role === 'verifikator')
+  const showVerifikatorAreaReadOnly = actorRole === 'verifikator' && (form.role === 'pic' || form.role === 'verifikator')
+  const showDistrictSelect = form.role === 'pic'
+  const showKtpUpload = form.role === 'pic'
 
   async function uploadProfile(userId: number){
     const payload = new FormData()
@@ -175,12 +259,7 @@ export default function ManagePIC(){
         <h4 className="font-medium">{editingId ? 'Edit User' : 'Tambah User'}</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
           <select className="p-2 border" value={form.role} onChange={e=>{
-            const nextRole = e.target.value
-            setForm({
-              ...form,
-              role: nextRole,
-              district_id: nextRole === 'verifikator' ? '' : form.district_id,
-            })
+            handleRoleChange(e.target.value)
           }}>
             <option value="pic">PIC</option>
             <option value="verifikator">Verifikator</option>
@@ -192,7 +271,7 @@ export default function ManagePIC(){
           <input className="p-2 border" placeholder="Jabatan/fungsi/posisi" value={form.position} onChange={e=>setForm({...form,position:e.target.value})} />
           <input className="p-2 border" placeholder="NIP" value={form.nip} onChange={e=>setForm({...form,nip:e.target.value})} />
           <input className="p-2 border" placeholder="No. HP" value={form.phone_number} onChange={e=>setForm({...form,phone_number:e.target.value})} />
-          {actorRole === 'pusat' && (
+          {showPusatRegionArea && (
             <select className="p-2 border" value={form.region_id} onChange={e=>handleRegionChange(e.target.value ? Number(e.target.value) : '')}>
               <option value="">Pilih region</option>
               {regions.map((r:any)=> (
@@ -200,13 +279,18 @@ export default function ManagePIC(){
               ))}
             </select>
           )}
-          <select className="p-2 border" value={form.area_id} onChange={e=>handleAreaChange(e.target.value ? Number(e.target.value) : '')}>
-            <option value="">Pilih area</option>
-            {areas.map((a:any)=> (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
-          {form.role === 'pic' && (
+          {showPusatRegionArea && (
+            <select className="p-2 border" value={form.area_id} onChange={e=>handleAreaChange(e.target.value ? Number(e.target.value) : '')}>
+              <option value="">Pilih area</option>
+              {areas.map((a:any)=> (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          )}
+          {showVerifikatorAreaReadOnly && (
+            <input className="p-2 border bg-gray-100 text-gray-700" value={actorAreaName || '-'} readOnly />
+          )}
+          {showDistrictSelect && (
             <select className="p-2 border" value={form.district_id} onChange={e=>setForm({...form,district_id: e.target.value ? Number(e.target.value) : ''})}>
               <option value="">Pilih district</option>
               {districts.map((d:any)=> (
@@ -215,12 +299,14 @@ export default function ManagePIC(){
             </select>
           )}
           <input className="p-2 border" placeholder="No. NIK KTP" value={form.nik_ktp} onChange={e=>setForm({...form,nik_ktp:e.target.value})} />
-          <div>
-            <label className="inline-block px-3 py-2 bg-blue-600 text-white rounded cursor-pointer text-sm">
-              upload KTP {form.ktp_scan && `(${form.ktp_scan.name})`}
-              <input type="file" accept="image/*" onChange={e=>setForm({...form,ktp_scan:e.target.files?.[0] || null})} className="hidden" />
-            </label>
-          </div>
+          {showKtpUpload && (
+            <div>
+              <label className="inline-block px-3 py-2 bg-blue-600 text-white rounded cursor-pointer text-sm">
+                upload KTP {form.ktp_scan && `(${form.ktp_scan.name})`}
+                <input type="file" accept="image/*" onChange={e=>setForm({...form,ktp_scan:e.target.files?.[0] || null})} className="hidden" />
+              </label>
+            </div>
+          )}
         </div>
         {!editingId && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
@@ -255,8 +341,8 @@ export default function ManagePIC(){
                 email: '',
                 password: '',
                 role: 'pic',
-                region_id: '',
-                area_id: '',
+                region_id: actorRole === 'verifikator' ? actorScope.region_id : '',
+                area_id: actorRole === 'verifikator' ? actorScope.area_id : '',
               })
             }} className="px-3 py-1 border rounded">Batal</button>
           )}
@@ -283,7 +369,7 @@ export default function ManagePIC(){
                   <td className="p-2 align-top whitespace-nowrap">{u.user_profiles?.nik_ktp || '-'}</td>
                   <td className="p-2 align-top whitespace-nowrap">
                     {u.user_profiles?.ktp_scan_path ? (
-                      <a className="text-blue-600 underline" href={`${((import.meta as any).env?.VITE_API_URL || 'http://localhost:3000')}/${u.user_profiles.ktp_scan_path.replace(/^\/+/, '')}`} target="_blank">Lihat</a>
+                      <a className="text-blue-600 underline" href={buildPublicFileUrl(u.user_profiles.ktp_scan_path)} target="_blank" rel="noreferrer">Lihat</a>
                     ) : '-'}
                   </td>
                   <td className="p-2 align-top whitespace-nowrap space-x-2">
@@ -308,7 +394,7 @@ export default function ManagePIC(){
                       })
                       if (userRegionId) fetchAreas(userRegionId)
                       if (userAreaId) {
-                        api.get('/districts', { params: { area_id: userAreaId } }).then((r)=>setDistricts(r.data))
+                        fetchDistricts(userAreaId)
                       }
                     }} className="text-blue-600">Edit</button>
                     <button onClick={()=>remove(u.id)} className="text-red-600">Hapus</button>

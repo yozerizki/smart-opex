@@ -137,21 +137,17 @@ export class DistrictController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator', 'pusat')
+  @Roles('pusat')
   @Post()
   async create(@Req() req: any, @Body() body: CreateDistrictDto & { area_id?: number }) {
     const actor = await this.getActor(req)
     if (!body.name || !body.name.trim()) throw new BadRequestException('name is required')
 
-    if (actor.role === 'pusat' && !body.area_id) {
+    if (!body.area_id) {
       throw new BadRequestException('area_id is required')
     }
 
-    if (actor.role === 'verifikator' && !actor.area_id) {
-      throw new BadRequestException('Your account is not mapped to an area')
-    }
-
-    const targetAreaId = actor.role === 'verifikator' ? actor.area_id : body.area_id
+    const targetAreaId = body.area_id
     const area = await this.service.findAreaById(Number(targetAreaId))
     if (!area) throw new BadRequestException('Invalid area_id')
 
@@ -159,7 +155,7 @@ export class DistrictController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator', 'pusat')
+  @Roles('pusat')
   @Put(':id')
   async update(
     @Req() req: any,
@@ -170,15 +166,7 @@ export class DistrictController {
     const district = await this.service.findDistrictById(id)
     if (!district) throw new BadRequestException('District not found')
 
-    if (actor.role === 'verifikator' && district.area_id !== actor.area_id) {
-      throw new BadRequestException('District is outside your area')
-    }
-
     if (!body.name || !body.name.trim()) throw new BadRequestException('name is required')
-
-    if (actor.role === 'verifikator' && body.area_id && body.area_id !== actor.area_id) {
-      throw new BadRequestException('Not allowed to move district to another area')
-    }
 
     if (body.area_id) {
       const area = await this.service.findAreaById(body.area_id)
@@ -192,16 +180,12 @@ export class DistrictController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('verifikator', 'pusat')
+  @Roles('pusat')
   @Delete(':id')
   async remove(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
     const actor = await this.getActor(req)
     const district = await this.service.findDistrictById(id)
     if (!district) throw new BadRequestException('District not found')
-
-    if (actor.role === 'verifikator' && district.area_id !== actor.area_id) {
-      throw new BadRequestException('District is outside your area')
-    }
 
     return this.service.removeDistrict(id)
   }

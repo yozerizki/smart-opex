@@ -9,7 +9,7 @@ export default function ActivityDetail(){
   const [editing, setEditing] = useState(false)
   const [viewedIds, setViewedIds] = useState<number[]>([])
   const [itemName, setItemName] = useState('')
-  const [manualTotal, setManualTotal] = useState<number | ''>('')
+  const [manualTotalInput, setManualTotalInput] = useState('')
   const [groupViewId, setGroupViewId] = useState<number | ''>('')
   const [groupViews, setGroupViews] = useState<any[]>([])
   const [recipientName, setRecipientName] = useState('')
@@ -23,6 +23,16 @@ export default function ActivityDetail(){
   const [deletedDocumentIds, setDeletedDocumentIds] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
+
+  function formatThousand(value: number) {
+    return value.toLocaleString('id-ID')
+  }
+
+  function parseDigits(value: string) {
+    const digits = value.replace(/\D/g, '')
+    if (!digits) return ''
+    return Number(digits)
+  }
 
   useEffect(()=>{ if(id) fetchReview() },[id])
   useEffect(()=>{
@@ -49,7 +59,8 @@ export default function ActivityDetail(){
     bootstrap()
   },[])
 
-  const manualNum = manualTotal === '' ? null : Number(manualTotal)
+  const manualNumParsed = parseDigits(manualTotalInput)
+  const manualNum = manualNumParsed === '' ? null : manualNumParsed
   const ocrNum = review ? Number(review.total_ocr || 0) : 0
   const amountsEqual = manualNum !== null && manualNum === ocrNum
   const allReceiptsViewed = !!review?.receipts?.length && review.receipts.every((r:any) => viewedIds.includes(r.id))
@@ -79,7 +90,9 @@ export default function ActivityDetail(){
       setReview(reviewObj)
       // populate edit fields
       setItemName(reviewObj.item_name || '')
-      setManualTotal(reviewObj.manual_total ?? '')
+      setManualTotalInput(
+        reviewObj.manual_total == null ? '' : formatThousand(Number(reviewObj.manual_total || 0)),
+      )
       setGroupViewId(data.group_view_id || data.group_views?.id || '')
       setRecipientName(reviewObj.recipient_name || '')
       setTransactionDate(reviewObj.transaction_date || '')
@@ -162,11 +175,21 @@ export default function ActivityDetail(){
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                       <div className={pengeluaranPanelClass}>
                         <label className={pengeluaranLabelClass}>Total (PIC)</label>
-                        <input disabled={!editing} type="number" className={`w-full p-2 border bg-transparent`} value={manualTotal as any} onChange={e=>setManualTotal(Number(e.target.value)||'')} />
+                        <input
+                          disabled={!editing}
+                          type="text"
+                          inputMode="numeric"
+                          className={`w-full p-2 border bg-transparent`}
+                          value={manualTotalInput}
+                          onChange={e=>{
+                            const parsed = parseDigits(e.target.value)
+                            setManualTotalInput(parsed === '' ? '' : formatThousand(parsed))
+                          }}
+                        />
                       </div>
                       <div className="p-3 rounded-md bg-green-50">
                         <label className="block text-sm font-medium text-green-800">Total (AI)</label>
-                        <div className="p-2 border bg-green-50 text-right font-medium">{review.total_ocr}</div>
+                        <div className="p-2 border bg-green-50 text-right font-medium">{formatThousand(Number(review.total_ocr || 0))}</div>
                         {hasPendingOcr && (
                           <div className="text-xs text-green-700 mt-1">OCR sedang diproses...</div>
                         )}
@@ -383,7 +406,18 @@ export default function ActivityDetail(){
                       alert('Maksimal 10 nota per kegiatan')
                       return
                     }
-                    const payload:any = { item_name: itemName, group_view_id: groupViewId, transaction_date: transactionDate, recipient_name: recipientName, manual_total: manualTotal }
+                    const parsedManualTotal = parseDigits(manualTotalInput)
+                    if (parsedManualTotal === '') {
+                      alert('Pengeluaran wajib diisi')
+                      return
+                    }
+                    const payload:any = {
+                      item_name: itemName,
+                      group_view_id: groupViewId,
+                      transaction_date: transactionDate,
+                      recipient_name: recipientName,
+                      manual_total: parsedManualTotal,
+                    }
                     if (role !== 'pic' && districtId) payload.district_id = districtId
                     await api.patch(`/opex/${id}`, payload)
 
@@ -440,7 +474,9 @@ export default function ActivityDetail(){
                   if (saving) return
                   // cancel edits: revert to review values
                   setItemName(review.item_name || '')
-                  setManualTotal(review.manual_total ?? '')
+                  setManualTotalInput(
+                    review.manual_total == null ? '' : formatThousand(Number(review.manual_total || 0)),
+                  )
                   setGroupViewId(review.group_view_id || '')
                   setRecipientName(review.recipient_name || '')
                   if(review.transaction_date) setTransactionDate(review.transaction_date)

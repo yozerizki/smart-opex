@@ -112,7 +112,7 @@ export default function ManageDistrict(){
             <option value="">Semua Area</option>
             {areas.map((a:any)=><option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
-          <button onClick={fetchDistricts} className="px-3 py-1 border rounded">Terapkan Filter</button>
+          <button onClick={fetchDistricts} className="px-3 py-1 bg-blue-600 text-white rounded">Terapkan Filter</button>
         </div>
       </div>
 
