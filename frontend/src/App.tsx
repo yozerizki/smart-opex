@@ -108,7 +108,7 @@ export default function App(){
   
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-7xl mx-auto p-4">
       <header className="mb-6 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-[180px]">
@@ -157,7 +157,7 @@ export default function App(){
         <Route path="/engine-ai" element={authCheck() ? <EngineAI/> : <Navigate to="/login" replace />} />
       </Routes>
       <div style={{fontSize: '0.7rem'}} className="mt-6 text-center text-gray-400">
-        developed by <a href="mailto:yozerizki@gmail.com" className="text-blue-600 underline">yozerizki&co</a> for <a href="https://pertagas.pertamina.com" target="_blank" rel="noreferrer" className="text-blue-600 underline">PT. Pertamina Gas Operation East Java Area (OEJA)</a> - 2026
+        developed by <a href="https://www.instagram.com/pertagasoeja" className="text-blue-600 underline">PT. Pertamina Gas Operation East Java Area (OEJA)</a> for <a href="https://pertagas.pertamina.com" target="_blank" rel="noreferrer" className="text-blue-600 underline">PT. Pertamina Gas</a> - 2026
       </div>
     </div>
   )

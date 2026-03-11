@@ -186,11 +186,11 @@ export default function Dashboard(){
           </div>
         </div>
       </div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <div className="flex items-center">
           <button onClick={goCreate} className="px-3 py-1 bg-green-600 text-white rounded">Tambah Kegiatan</button>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label className="text-sm">Bulan</label>
           <input type="month" value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} className="p-1 border" />
           {(role === 'verifikator' || role === 'pusat') && (
@@ -224,14 +224,16 @@ export default function Dashboard(){
           </select>
         </div>
       </div>
-      <table className="w-full bg-white rounded shadow">
+      <table className="w-full bg-white rounded shadow text-sm">
         <thead className="bg-gray-100">
           <tr>
-            <th className="p-2">Tanggal</th>
+            <th className="p-2 whitespace-nowrap">Tanggal</th>
             <th className="p-2">Nama Kegiatan</th>
-            <th className="p-2">Group View</th>
-            <th className="p-2">District</th>
-            <th className="p-2">Nama Toko / Penerima</th>
+            <th className="p-2 whitespace-nowrap">Group View</th>
+            <th className="p-2">Region</th>
+            <th className="p-2">Area</th>
+            <th className="p-2">Distrik</th>
+            <th className="p-2 whitespace-nowrap">Nama Toko / Penerima</th>
             <th className="p-2">Total (PIC)</th>
             <th className="p-2">Total (AI)</th>
             <th className="p-2">Status</th>
@@ -240,13 +242,15 @@ export default function Dashboard(){
         </thead>
         <tbody>
           {filteredItems.length === 0 && !loading && itemsFetched ? (
-            <tr><td colSpan={9} className="p-4 text-center text-gray-500">Tidak ada data</td></tr>
+            <tr><td colSpan={11} className="p-4 text-center text-gray-500">Tidak ada data</td></tr>
           ) : filteredItems.map(i=> (
             <tr key={i.id} className={`border-t ${i.status==='PERLU_REVIEW' ? 'bg-yellow-50' : (i.status==='OK' || i.status==='TELAH_DIREVIEW') ? 'bg-green-50' : ''}`}>
-              <td className="p-2">{i.transaction_date ? new Date(i.transaction_date).toLocaleDateString() : '-'}</td>
+              <td className="p-2 whitespace-nowrap">{i.transaction_date ? new Date(i.transaction_date).toLocaleDateString() : '-'}</td>
               <td className="p-2">{i.item_name || '-'}</td>
-              <td className="p-2">{i.group_views?.name || '-'}</td>
-              <td className="p-2">{i.districts?.areas?.regions?.name || '-'} / {i.districts?.areas?.name || '-'} / {i.districts?.name || '-'}</td>
+              <td className="p-2 whitespace-nowrap">{i.group_views?.name || '-'}</td>
+              <td className="p-2 whitespace-nowrap">{i.districts?.areas?.regions?.name || '-'}</td>
+              <td className="p-2 whitespace-nowrap">{i.districts?.areas?.name || '-'}</td>
+              <td className="p-2 whitespace-nowrap">{i.districts?.name || '-'}</td>
               <td className="p-2">{i.recipient_name || '-'}</td>
               <td className="p-2">{formatRupiah(i.amount)}</td>
               <td className="p-2">

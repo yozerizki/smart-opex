@@ -157,26 +157,39 @@ export class OpexService {
     userId: number,
     filters?: { region_id?: number; area_id?: number; district_id?: number }
   ) {
-    // fetch user
+    // fetch user with both area and district relations
     const user = await this.prisma.users.findUnique({
       where: { id: userId },
       include: {
         user_profiles: true,
+        areas: { include: { regions: true } },
         districts: { include: { areas: { include: { regions: true } } } },
       },
     })
 
-    // fetch activities with filter
-    let where: any = { created_by: userId }
-    if (filters?.district_id) where.district_id = filters.district_id
-    if (filters?.area_id) where.districts = { is: { area_id: filters.area_id } }
-    if (filters?.region_id) {
-      const base = where.districts?.is || {}
-      where.districts = { is: { ...base, areas: { is: { region_id: filters.region_id } } } }
+    // build where clause based on role — mirrors controller logic
+    const where: any = {}
+    if (user?.role === 'pic') {
+      if (user.district_id) where.district_id = user.district_id
+    } else if (user?.role === 'verifikator') {
+      const effectiveAreaId = filters?.area_id ?? user.area_id
+      if (filters?.district_id) {
+        where.district_id = filters.district_id
+      } else if (effectiveAreaId) {
+        where.districts = { is: { area_id: effectiveAreaId } }
+      }
+    } else {
+      // pusat: apply only the explicit filters, no created_by restriction
+      if (filters?.district_id) where.district_id = filters.district_id
+      if (filters?.area_id) where.districts = { is: { area_id: filters.area_id } }
+      if (filters?.region_id) {
+        const base = where.districts?.is || {}
+        where.districts = { is: { ...base, areas: { is: { region_id: filters.region_id } } } }
+      }
     }
 
     const activities = await this.prisma.opex_items.findMany({
-      where: Object.keys(where).length > 1 ? where : { created_by: userId },
+      where: Object.keys(where).length ? where : undefined,
       include: {
         opex_receipts: true,
         group_views: true,
@@ -187,7 +200,7 @@ export class OpexService {
 
     // prepare data
     const picName = user?.user_profiles?.full_name || 'PIC'
-    const picArea = user?.districts?.areas?.name || 'N/A'
+    const picArea = (user as any)?.areas?.name || user?.districts?.areas?.name || 'N/A'
     const now = new Date()
     const monthName = new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(now)
     const year = now.getFullYear()
@@ -286,7 +299,7 @@ export class OpexService {
     const buffer = await workbook.xlsx.writeBuffer()
 
     return {
-      buffer: buffer as Buffer,
+      buffer: Buffer.from(buffer as any),
       filename,
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     }
