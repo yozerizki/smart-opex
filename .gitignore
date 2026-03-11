@@ -57,5 +57,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
 
+# Local docs and prompt notes (do not deploy)
+backend/docs/
+backend/prompts/
+
 # Exclude compiled distribution artifacts
 dist/

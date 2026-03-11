@@ -4,81 +4,117 @@ import * as bcrypt from 'bcrypt'
 const prisma = new PrismaClient()
 
 async function main() {
+  // cleanup dependent rows so hierarchy and master refs can be reset safely
+  await prisma.$transaction(async (tx) => {
+    await tx.ocr_results.deleteMany({})
+    await tx.documents.deleteMany({})
+    await tx.opex_receipts.deleteMany({})
+    await tx.opex_items.deleteMany({})
+    await tx.audit_logs.deleteMany({})
+
+    await tx.users.updateMany({
+      data: {
+        district_id: null,
+        area_id: null,
+      },
+    })
+
+    await tx.districts.deleteMany({})
+    await tx.areas.deleteMany({})
+    await tx.regions.deleteMany({})
+    await tx.group_views.deleteMany({})
+  })
+
+  const groupViews = [
+    'Meal, Drink & Snack',
+    'Non Core Activity (BAPOR, Komunitas, Etc)',
+    'ATK, Copy & Jilid dokument, dan Pengiriman Dokumen',
+    'Utilities',
+    'Retribusi (Sampah, Kebersihan, dsb)',
+    'Pemeliharaan Aset Perusahaan (Damkar, dll) yang dilakukan perorangan',
+    'Dokumen PO',
+    'Rincian Excel',
+    'Honorarium',
+    'Internet, TV Kabel, fasilitasi multimedia lainnya - IT Operation',
+    'Biaya Pajak (diluar PPN, PPh, PDRI, PBBKB), Retribusi, Perpanjangan Surat Perijinan',
+    'Relationship internal/external (karangan bunga dukacita, ucapan selamat)',
+    'Event Keagamaan',
+    'Land Acquisition - explorasi & produksi',
+    'Agency Cost - Marine',
+    'Konpensasi aktivitasi eksplorasi/eksploitasi - EP',
+    'Honorarium - PCU',
+    'Penyelesaian perkara hukum (legal dispute) - Fungsi Legal',
+    'Training (inhouse/external) - PCU',
+    'Apresiasi Untuk UTD Pekerja - HR',
+    'Biaya Transportasi',
+    'Biaya operasional tenaga kerja penunjang fungsi (OS, Internship, Calon Pekerja)',
+    'Extraodinary Expense (Bencana Alam, Lakalantas, dll) dan Emergency',
+    'Biaya Sertifikasi Profesi',
+    'Gethering/Outbond/Values Day',
+    'Event Sosial',
+    'Rakor/Konsinyering',
+    'Event Tournament/Kompetisi',
+    'Pemindahan RIG PDSI',
+    'Pembelian Souvenir Apresiasi Pekerja',
+    'Program Fit to Work',
+    'Claim dinas pekerja yang sudah makan',
+    'Biaya keamanan & koordinasi',
+    'PNBP Penerimaan Negara (Non Kepelabuhan)',
+    'Tenaga Ahli Direct Hire, Biaya dinas konsultan',
+    'Paket data WFH (Pekerja, JDP dan TKJP) - Selama masa Pandemi',
+    'Kegiatan Research & Development',
+    'Lisensi / Hak Paten untuk Perorangan maupun lembaga',
+    'Dokumen PR',
+    'Surat PJS / SP3S',
+  ]
+
+  await prisma.group_views.createMany({
+    data: groupViews.map((name) => ({ name })),
+    skipDuplicates: true,
+  })
+
+  const regionWest = await prisma.regions.create({
+    data: { name: 'Operation West Regional' },
+  })
+
+  const regionEast = await prisma.regions.create({
+    data: { name: 'Operation East Regional' },
+  })
+
+  await prisma.areas.createMany({
+    data: [
+      { region_id: regionWest.id, name: 'Operation North Sumatra Area' },
+      { region_id: regionWest.id, name: 'Operation Central Sumatra Area' },
+      { region_id: regionWest.id, name: 'Operation South Sumatra Area' },
+      { region_id: regionWest.id, name: 'Operation Dumai Area' },
+      { region_id: regionWest.id, name: 'Operation Rokan Area' },
+      { region_id: regionWest.id, name: 'Operation West Java Area' },
+      { region_id: regionEast.id, name: 'Operation East Java Area' },
+      { region_id: regionEast.id, name: 'Operation Kalimantan Area' },
+    ],
+    skipDuplicates: true,
+  })
+
   const passwordHash = await bcrypt.hash('password123', 10)
-
-  const region = await prisma.regions.upsert({
-    where: { name: 'Region X' },
-    update: {},
-    create: { name: 'Region X' },
-  })
-
-  const areaA = await prisma.areas.upsert({
-    where: { region_id_name: { region_id: region.id, name: 'Area A' } },
-    update: {},
-    create: { region_id: region.id, name: 'Area A' },
-  })
-
-  const areaB = await prisma.areas.upsert({
-    where: { region_id_name: { region_id: region.id, name: 'Area B' } },
-    update: {},
-    create: { region_id: region.id, name: 'Area B' },
-  })
-
-  const districtArea = await prisma.districts.upsert({
-    where: { area_id_name: { area_id: areaA.id, name: 'District i' } },
-    update: {},
-    create: { name: 'District i', area_id: areaA.id },
-  })
-
-  const district1 = await prisma.districts.upsert({
-    where: { area_id_name: { area_id: areaA.id, name: 'District ii' } },
-    update: {},
-    create: { name: 'District ii', area_id: areaA.id },
-  })
-
-  const district2 = await prisma.districts.upsert({
-    where: { area_id_name: { area_id: areaB.id, name: 'District j' } },
-    update: {},
-    create: { name: 'District j', area_id: areaB.id },
-  })
-
-  await prisma.districts.upsert({
-    where: { area_id_name: { area_id: areaB.id, name: 'District jj' } },
-    update: {},
-    create: { name: 'District jj', area_id: areaB.id },
-  })
-
-  await prisma.group_views.upsert({
-    where: { name: 'Operasional' },
-    update: {},
-    create: { name: 'Operasional' },
-  })
-
-  await prisma.group_views.upsert({
-    where: { name: 'Logistik' },
-    update: {},
-    create: { name: 'Logistik' },
-  })
-
-  await prisma.group_views.upsert({
-    where: { name: 'Transport' },
-    update: {},
-    create: { name: 'Transport' },
-  })
+  const oeja = await prisma.areas.findFirst({ where: { name: 'Operation East Java Area' } })
+  if (!oeja) {
+    throw new Error('Operation East Java Area not found after seeding')
+  }
 
   const verifikator = await prisma.users.upsert({
     where: { email: 'verifikator@smartopex.local' },
     update: {
       password_hash: passwordHash,
       role: 'verifikator',
-      area_id: areaA.id,
+      area_id: oeja.id,
       district_id: null,
     },
     create: {
       email: 'verifikator@smartopex.local',
       password_hash: passwordHash,
       role: 'verifikator',
-      area_id: areaA.id,
+      area_id: oeja.id,
+      district_id: null,
     },
   })
 
@@ -120,120 +156,8 @@ async function main() {
     },
   })
 
-  console.log('Seed verifikator berhasil')
-
-  // Seed PIC accounts: 1 Area, 2 District
-  const picPassword = await bcrypt.hash('picpass123', 10)
-
-  const picArea = await prisma.users.upsert({
-    where: { email: 'pic_area@smartopex.local' },
-    update: {
-      password_hash: picPassword,
-      role: 'pic',
-      district_id: districtArea.id,
-    },
-    create: {
-      email: 'pic_area@smartopex.local',
-      password_hash: picPassword,
-      role: 'pic',
-      district_id: districtArea.id,
-    },
-  })
-
-  await prisma.user_profiles.upsert({
-    where: { user_id: picArea.id },
-    update: {
-      full_name: 'PIC Area',
-      position: 'PIC Area Office',
-      nip: '1111111111',
-      phone_number: '081111111111',
-      nik_ktp: '1111111111111111',
-      ktp_scan_path: 'placeholder/ktp_pic_area.pdf',
-    },
-    create: {
-      user_id: picArea.id,
-      full_name: 'PIC Area',
-      position: 'PIC Area Office',
-      nip: '1111111111',
-      phone_number: '081111111111',
-      nik_ktp: '1111111111111111',
-      ktp_scan_path: 'placeholder/ktp_pic_area.pdf',
-    },
-  })
-
-  const picDistrict1 = await prisma.users.upsert({
-    where: { email: 'pic_district1@smartopex.local' },
-    update: {
-      password_hash: picPassword,
-      role: 'pic',
-      district_id: district1.id,
-    },
-    create: {
-      email: 'pic_district1@smartopex.local',
-      password_hash: picPassword,
-      role: 'pic',
-      district_id: district1.id,
-    },
-  })
-
-  await prisma.user_profiles.upsert({
-    where: { user_id: picDistrict1.id },
-    update: {
-      full_name: 'PIC District 1',
-      position: 'PIC District',
-      nip: '2222222222',
-      phone_number: '082222222222',
-      nik_ktp: '2222222222222222',
-      ktp_scan_path: 'placeholder/ktp_pic_district1.pdf',
-    },
-    create: {
-      user_id: picDistrict1.id,
-      full_name: 'PIC District 1',
-      position: 'PIC District',
-      nip: '2222222222',
-      phone_number: '082222222222',
-      nik_ktp: '2222222222222222',
-      ktp_scan_path: 'placeholder/ktp_pic_district1.pdf',
-    },
-  })
-
-  const picDistrict2 = await prisma.users.upsert({
-    where: { email: 'pic_district2@smartopex.local' },
-    update: {
-      password_hash: picPassword,
-      role: 'pic',
-      district_id: district2.id,
-    },
-    create: {
-      email: 'pic_district2@smartopex.local',
-      password_hash: picPassword,
-      role: 'pic',
-      district_id: district2.id,
-    },
-  })
-
-  await prisma.user_profiles.upsert({
-    where: { user_id: picDistrict2.id },
-    update: {
-      full_name: 'PIC District 2',
-      position: 'PIC District',
-      nip: '3333333333',
-      phone_number: '083333333333',
-      nik_ktp: '3333333333333333',
-      ktp_scan_path: 'placeholder/ktp_pic_district2.pdf',
-    },
-    create: {
-      user_id: picDistrict2.id,
-      full_name: 'PIC District 2',
-      position: 'PIC District',
-      nip: '3333333333',
-      phone_number: '083333333333',
-      nik_ktp: '3333333333333333',
-      ktp_scan_path: 'placeholder/ktp_pic_district2.pdf',
-    },
-  })
-
-  console.log('Seed PIC accounts berhasil')
+  console.log('Seed master data (group view, region, area) berhasil')
+  console.log('Seed user dasar (pusat, verifikator) berhasil')
 }
 
 main()
