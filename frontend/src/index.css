@@ -2,5 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root { height: 100%; }
-body { @apply bg-gray-50 text-gray-800; }
+html,
+body,
+#root {
+	min-height: 100%;
+}
+
+body {
+	color: #1f2937;
+	background-color: #f9fafb;
+	/* Keep only ~15% of original image intensity (85% white overlay). */
+	background-image:
+		linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)),
+		url('/pertaminagasbg.jpeg');
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+	background-attachment: fixed;
+}
+
+@media (max-width: 768px) {
+	body {
+		background-attachment: scroll;
+	}
+}
