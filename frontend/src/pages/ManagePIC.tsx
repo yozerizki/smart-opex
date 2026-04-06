@@ -268,7 +268,14 @@ export default function ManagePIC(){
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
           <input className="p-2 border" placeholder="Nama lengkap" value={form.full_name} onChange={e=>setForm({...form,full_name:e.target.value})} />
-          <input className="p-2 border" placeholder="Jabatan/fungsi/posisi" value={form.position} onChange={e=>setForm({...form,position:e.target.value})} />
+          {editingId ? (
+            <input className="p-2 border bg-gray-100 text-gray-700" placeholder="Email" value={form.email || '-'} readOnly />
+          ) : (
+            <input className="p-2 border" placeholder="Jabatan/fungsi/posisi" value={form.position} onChange={e=>setForm({...form,position:e.target.value})} />
+          )}
+          {editingId && (
+            <input className="p-2 border" placeholder="Jabatan/fungsi/posisi" value={form.position} onChange={e=>setForm({...form,position:e.target.value})} />
+          )}
           <input className="p-2 border" placeholder="NIP" value={form.nip} onChange={e=>setForm({...form,nip:e.target.value})} />
           <input className="p-2 border" placeholder="No. HP" value={form.phone_number} onChange={e=>setForm({...form,phone_number:e.target.value})} />
           {showPusatRegionArea && (
@@ -353,12 +360,13 @@ export default function ManagePIC(){
         <h4 className="font-medium">Daftar Users</h4>
         {loading ? <div>Loading...</div> : (
           <div className="mt-2 w-full max-w-full overflow-x-auto">
-            <table className="min-w-[1100px] w-full text-sm">
-            <thead className="bg-gray-100"><tr><th className="p-2 whitespace-nowrap">Nama lengkap</th><th className="p-2 whitespace-nowrap">Role</th><th className="p-2 whitespace-nowrap">Region</th><th className="p-2 whitespace-nowrap">Area</th><th className="p-2 whitespace-nowrap">District</th><th className="p-2 whitespace-nowrap">Jabatan</th><th className="p-2 whitespace-nowrap">NIP</th><th className="p-2 whitespace-nowrap">No. HP</th><th className="p-2 whitespace-nowrap">NIK KTP</th><th className="p-2 whitespace-nowrap">Scan KTP</th><th className="p-2 whitespace-nowrap">Aksi</th></tr></thead>
+            <table className="min-w-[1200px] w-full text-sm">
+            <thead className="bg-gray-100"><tr><th className="p-2 whitespace-nowrap">Nama lengkap</th><th className="p-2 whitespace-nowrap">Email</th><th className="p-2 whitespace-nowrap">Role</th><th className="p-2 whitespace-nowrap">Region</th><th className="p-2 whitespace-nowrap">Area</th><th className="p-2 whitespace-nowrap">District</th><th className="p-2 whitespace-nowrap">Jabatan</th><th className="p-2 whitespace-nowrap">NIP</th><th className="p-2 whitespace-nowrap">No. HP</th><th className="p-2 whitespace-nowrap">NIK KTP</th><th className="p-2 whitespace-nowrap">Scan KTP</th><th className="p-2 whitespace-nowrap">Aksi</th></tr></thead>
             <tbody>
               {users.map(u=> (
                 <tr key={u.id} className="border-t">
                   <td className="p-2 align-top break-words">{u.user_profiles?.full_name || '-'}</td>
+                  <td className="p-2 align-top break-words">{u.email || '-'}</td>
                   <td className="p-2 align-top whitespace-nowrap">{u.role || '-'}</td>
                   <td className="p-2 align-top break-words">{u.areas?.regions?.name || u.districts?.areas?.regions?.name || '-'}</td>
                   <td className="p-2 align-top break-words">{u.areas?.name || u.districts?.areas?.name || '-'}</td>
