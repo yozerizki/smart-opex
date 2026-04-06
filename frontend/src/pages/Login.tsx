@@ -37,14 +37,14 @@ export default function Login(){
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gray-50">
-      <div className="w-full max-w-md bg-white p-6 rounded shadow">
+    <div className="min-h-screen flex flex-col justify-center items-center">
+      <div className="w-full max-w-md p-6">
         <h2 className="text-xl font-semibold mb-4 text-center">login</h2>
         <form onSubmit={submit} className="space-y-3">
           <label className="block text-sm">Email</label>
-          <input className="w-full p-2 border" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)} />
+          <input className="w-full p-2 border bg-white" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)} />
           <label className="block text-sm">Kata sandi</label>
-          <input className="w-full p-2 border" placeholder="password" type="password" value={password} onChange={e=>setPassword(e.target.value)} onCopy={handlePasswordCopy} />
+          <input className="w-full p-2 border bg-white" placeholder="password" type="password" value={password} onChange={e=>setPassword(e.target.value)} onCopy={handlePasswordCopy} />
           <button className="w-full px-4 py-2 bg-blue-600 text-white rounded">login</button>
         </form>
       </div>
