@@ -106,8 +106,8 @@ export default function CreateActivity(){
       selectedActivityDocuments.forEach((file) => fd.append('activity_documents', file))
       selectedSupportingDocuments.forEach((file) => fd.append('supporting_documents', file))
 
-      const res = await api.post('/opex', fd, { headers: {'Content-Type': 'multipart/form-data'} })
-      nav(`/activity/${res.data.id}`)
+        const res = await api.post('/opex', fd, { headers: {'Content-Type': 'multipart/form-data'} })
+        nav(`/activity/${res.data.id}`)
     }catch(err:any){
       alert(err?.response?.data?.message || 'Gagal membuat kegiatan')
     }
@@ -259,6 +259,7 @@ export default function CreateActivity(){
                     setActivityDocuments(next)
                   }}
                 />
+                {activityDocuments.length > 1 && (
                 <button
                   type="button"
                   onClick={()=>{
@@ -267,6 +268,7 @@ export default function CreateActivity(){
                   }}
                   className="px-2 py-1 text-sm border rounded"
                 >Hapus</button>
+                )}
               </div>
             ))}
             {activityDocuments.length > 0 && (
@@ -314,6 +316,7 @@ export default function CreateActivity(){
                     setSupportingDocuments(next)
                   }}
                 />
+                {supportingDocuments.length > 1 && (
                 <button
                   type="button"
                   onClick={()=>{
@@ -322,6 +325,7 @@ export default function CreateActivity(){
                   }}
                   className="px-2 py-1 text-sm border rounded"
                 >Hapus</button>
+                )}
               </div>
             ))}
             {supportingDocuments.length > 0 && (

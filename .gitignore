@@ -63,3 +63,5 @@ backend/prompts/
 
 # Exclude compiled distribution artifacts
 dist/
+backend/node_modules/
+frontend/node_modules/
