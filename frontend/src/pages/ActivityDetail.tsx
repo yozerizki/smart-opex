@@ -18,7 +18,8 @@ export default function ActivityDetail(){
   const [districts, setDistricts] = useState<any[]>([])
   const [role, setRole] = useState<string>('')
   const [newReceipts, setNewReceipts] = useState<(File | null)[]>([])
-  const [newDocuments, setNewDocuments] = useState<(File | null)[]>([])
+  const [newActivityDocs, setNewActivityDocs] = useState<(File | null)[]>([])
+  const [newSupportingDocs, setNewSupportingDocs] = useState<(File | null)[]>([])
   const [deletedReceiptIds, setDeletedReceiptIds] = useState<number[]>([])
   const [deletedDocumentIds, setDeletedDocumentIds] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
@@ -72,6 +73,9 @@ export default function ActivityDetail(){
       const res = await api.get(`/opex/${id}`)
       const data = res.data
       const receipts = (data.opex_receipts || []).map((r:any)=>({ id: r.id, file_path: r.file_path, ocr_detected_total: r.ocr_detected_total }))
+      const allDocs = data.documents || []
+      const activityDocs = allDocs.filter((d: any) => String(d.file_path || '').includes('documents/activity'))
+      const supportingDocs = allDocs.filter((d: any) => String(d.file_path || '').includes('documents/supporting'))
       const reviewObj = {
         id: data.id,
         item_name: data.item_name,
@@ -79,7 +83,8 @@ export default function ActivityDetail(){
         manual_total: data.amount,
         transaction_date: data.transaction_date ? String(data.transaction_date).split('T')[0] : '',
         receipts,
-        documents: data.documents || [],
+        activity_documents: activityDocs,
+        supporting_documents: supportingDocs,
         total_ocr: data.total_ocr ?? 0,
         status: data.status,
         district_id: data.district_id,
@@ -98,7 +103,8 @@ export default function ActivityDetail(){
       setTransactionDate(reviewObj.transaction_date || '')
       setDistrictId(data.district_id || '')
       setNewReceipts([])
-      setNewDocuments([])
+      setNewActivityDocs([])
+      setNewSupportingDocs([])
       setDeletedReceiptIds([])
       setDeletedDocumentIds([])
       setViewedIds([])
@@ -319,11 +325,11 @@ export default function ActivityDetail(){
 
             <div className="mt-4">
               <h4 className="font-medium">Dokumentasi Kegiatan</h4>
-              {(review.documents || []).length === 0 ? (
+              {(review.activity_documents || []).length === 0 ? (
                 <div className="text-sm text-gray-500">Tidak ada dokumentasi</div>
               ) : (
                 <ul>
-                  {review.documents.map((d:any)=> (
+                  {review.activity_documents.map((d:any)=> (
                     <li key={d.id} className={`border p-2 my-1 flex justify-between items-center ${deletedDocumentIds.includes(d.id) ? 'opacity-50' : ''}`}>
                       <div className="font-medium">{d.file_path}</div>
                       <div className="flex items-center gap-2">
@@ -347,31 +353,95 @@ export default function ActivityDetail(){
               {editing && (
                 <div className="mt-3">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">Tambah Dokumentasi</div>
+                    <div className="text-sm text-gray-600">Tambah Dokumentasi Kegiatan</div>
                     <button
                       type="button"
-                      onClick={()=>setNewDocuments([...newDocuments, null])}
+                      onClick={()=>setNewActivityDocs([...newActivityDocs, null])}
                       className="px-2 py-1 text-sm border rounded"
                     >Tambah File</button>
                   </div>
                   <div className="mt-2 space-y-2">
-                    {newDocuments.map((file, idx) => (
+                    {newActivityDocs.map((file, idx) => (
                       <div key={idx} className="flex items-center gap-2">
                         <input
                           type="file"
                           accept="image/*,application/pdf"
                           className="border p-1 flex-1"
                           onChange={e=>{
-                            const next = [...newDocuments]
+                            const next = [...newActivityDocs]
                             next[idx] = e.target.files?.[0] || null
-                            setNewDocuments(next)
+                            setNewActivityDocs(next)
                           }}
                         />
                         <button
                           type="button"
                           onClick={()=>{
-                            const next = newDocuments.filter((_, i) => i !== idx)
-                            setNewDocuments(next)
+                            const next = newActivityDocs.filter((_, i) => i !== idx)
+                            setNewActivityDocs(next)
+                          }}
+                          className="px-2 py-1 text-sm border rounded"
+                        >Hapus</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="mt-4">
+              <h4 className="font-medium">Bukti / Dokumentasi Pendukung</h4>
+              {(review.supporting_documents || []).length === 0 ? (
+                <div className="text-sm text-gray-500">Tidak ada dokumentasi pendukung</div>
+              ) : (
+                <ul>
+                  {review.supporting_documents.map((d:any)=> (
+                    <li key={d.id} className={`border p-2 my-1 flex justify-between items-center ${deletedDocumentIds.includes(d.id) ? 'opacity-50' : ''}`}>
+                      <div className="font-medium">{d.file_path}</div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          className="text-blue-600 underline"
+                          href={`${((import.meta as any).env?.VITE_API_URL || 'http://localhost:3000')}/${d.file_path.replace(/^\/+/, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Lihat
+                        </a>
+                        {editing && !deletedDocumentIds.includes(d.id) && (
+                          <button onClick={()=>setDeletedDocumentIds([...deletedDocumentIds, d.id])} className="px-2 py-1 text-sm border rounded text-red-600">Hapus</button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {editing && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-600">Tambah Bukti / Dokumentasi Pendukung</div>
+                    <button
+                      type="button"
+                      onClick={()=>setNewSupportingDocs([...newSupportingDocs, null])}
+                      className="px-2 py-1 text-sm border rounded"
+                    >Tambah File</button>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {newSupportingDocs.map((file, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="border p-1 flex-1"
+                          onChange={e=>{
+                            const next = [...newSupportingDocs]
+                            next[idx] = e.target.files?.[0] || null
+                            setNewSupportingDocs(next)
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={()=>{
+                            const next = newSupportingDocs.filter((_, i) => i !== idx)
+                            setNewSupportingDocs(next)
                           }}
                           className="px-2 py-1 text-sm border rounded"
                         >Hapus</button>
@@ -422,7 +492,8 @@ export default function ActivityDetail(){
                     await api.patch(`/opex/${id}`, payload)
 
                     const filesToAdd = newReceipts.filter(Boolean) as File[]
-                    const docsToAdd = newDocuments.filter(Boolean) as File[]
+                    const activityDocsToAdd = newActivityDocs.filter(Boolean) as File[]
+                    const supportingDocsToAdd = newSupportingDocs.filter(Boolean) as File[]
                     const shouldDeleteFirst = currentCount + addCount > 10
 
                     if (shouldDeleteFirst) {
@@ -437,9 +508,14 @@ export default function ActivityDetail(){
                         filesToAdd.forEach((f) => fd.append('receipts', f))
                         await api.post(`/opex/${id}/receipts`, fd, { headers: {'Content-Type': 'multipart/form-data'} })
                       }
-                      if (docsToAdd.length) {
+                      if (activityDocsToAdd.length) {
                         const fd = new FormData()
-                        docsToAdd.forEach((f) => fd.append('documents', f))
+                        activityDocsToAdd.forEach((f) => fd.append('activity_documents', f))
+                        await api.post(`/opex/${id}/documents`, fd, { headers: {'Content-Type': 'multipart/form-data'} })
+                      }
+                      if (supportingDocsToAdd.length) {
+                        const fd = new FormData()
+                        supportingDocsToAdd.forEach((f) => fd.append('supporting_documents', f))
                         await api.post(`/opex/${id}/documents`, fd, { headers: {'Content-Type': 'multipart/form-data'} })
                       }
                     } else {
@@ -448,9 +524,14 @@ export default function ActivityDetail(){
                         filesToAdd.forEach((f) => fd.append('receipts', f))
                         await api.post(`/opex/${id}/receipts`, fd, { headers: {'Content-Type': 'multipart/form-data'} })
                       }
-                      if (docsToAdd.length) {
+                      if (activityDocsToAdd.length) {
                         const fd = new FormData()
-                        docsToAdd.forEach((f) => fd.append('documents', f))
+                        activityDocsToAdd.forEach((f) => fd.append('activity_documents', f))
+                        await api.post(`/opex/${id}/documents`, fd, { headers: {'Content-Type': 'multipart/form-data'} })
+                      }
+                      if (supportingDocsToAdd.length) {
+                        const fd = new FormData()
+                        supportingDocsToAdd.forEach((f) => fd.append('supporting_documents', f))
                         await api.post(`/opex/${id}/documents`, fd, { headers: {'Content-Type': 'multipart/form-data'} })
                       }
                       for (const rid of deletedReceiptIds) {
@@ -463,7 +544,7 @@ export default function ActivityDetail(){
 
                     await fetchReview()
                     setEditing(false)
-                    alert('Perubahan tersimpan')
+                      alert('Kegiatan berhasil disimpan')
                   }catch(err:any){
                     alert(err?.response?.data?.message || 'Gagal menyimpan')
                   }finally{
@@ -483,7 +564,8 @@ export default function ActivityDetail(){
                   setDeletedReceiptIds([])
                   setDeletedDocumentIds([])
                   setNewReceipts([])
-                  setNewDocuments([])
+                  setNewActivityDocs([])
+                  setNewSupportingDocs([])
                   setEditing(false)
                 }} disabled={saving} className="px-4 py-2 border rounded disabled:opacity-60">Batal</button>
               </>

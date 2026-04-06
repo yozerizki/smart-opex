@@ -352,18 +352,18 @@ export default function ManagePIC(){
       <div className="bg-white p-4 rounded shadow">
         <h4 className="font-medium">Daftar Users</h4>
         {loading ? <div>Loading...</div> : (
-          <div className="mt-2 w-full overflow-x-auto">
+          <div className="mt-2 w-full max-w-full overflow-x-auto">
             <table className="min-w-[1100px] w-full text-sm">
             <thead className="bg-gray-100"><tr><th className="p-2 whitespace-nowrap">Nama lengkap</th><th className="p-2 whitespace-nowrap">Role</th><th className="p-2 whitespace-nowrap">Region</th><th className="p-2 whitespace-nowrap">Area</th><th className="p-2 whitespace-nowrap">District</th><th className="p-2 whitespace-nowrap">Jabatan</th><th className="p-2 whitespace-nowrap">NIP</th><th className="p-2 whitespace-nowrap">No. HP</th><th className="p-2 whitespace-nowrap">NIK KTP</th><th className="p-2 whitespace-nowrap">Scan KTP</th><th className="p-2 whitespace-nowrap">Aksi</th></tr></thead>
             <tbody>
               {users.map(u=> (
                 <tr key={u.id} className="border-t">
-                  <td className="p-2 align-top whitespace-nowrap">{u.user_profiles?.full_name || '-'}</td>
+                  <td className="p-2 align-top break-words">{u.user_profiles?.full_name || '-'}</td>
                   <td className="p-2 align-top whitespace-nowrap">{u.role || '-'}</td>
-                  <td className="p-2 align-top whitespace-nowrap">{u.areas?.regions?.name || u.districts?.areas?.regions?.name || '-'}</td>
-                  <td className="p-2 align-top whitespace-nowrap">{u.areas?.name || u.districts?.areas?.name || '-'}</td>
-                  <td className="p-2 align-top whitespace-nowrap">{u.districts?.name || '-'}</td>
-                  <td className="p-2 align-top">{u.user_profiles?.position || '-'}</td>
+                  <td className="p-2 align-top break-words">{u.areas?.regions?.name || u.districts?.areas?.regions?.name || '-'}</td>
+                  <td className="p-2 align-top break-words">{u.areas?.name || u.districts?.areas?.name || '-'}</td>
+                  <td className="p-2 align-top break-words">{u.districts?.name || '-'}</td>
+                  <td className="p-2 align-top break-words">{u.user_profiles?.position || '-'}</td>
                   <td className="p-2 align-top whitespace-nowrap">{u.user_profiles?.nip || '-'}</td>
                   <td className="p-2 align-top whitespace-nowrap">{u.user_profiles?.phone_number || '-'}</td>
                   <td className="p-2 align-top whitespace-nowrap">{u.user_profiles?.nik_ktp || '-'}</td>

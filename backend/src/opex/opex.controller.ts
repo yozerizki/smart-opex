@@ -366,26 +366,35 @@ export class OpexController {
   @UseGuards(JwtAuthGuard)
   @Post(':id/documents')
   @UseInterceptors(
-    FilesInterceptor('documents', 10, {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const dir = './uploads/documents'
-          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-          cb(null, dir)
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
-          const fileExtName = extname(file.originalname)
-          cb(null, `${file.fieldname}-${uniqueSuffix}${fileExtName}`)
-        },
-      }),
-      limits: { fileSize: 10 * 1024 * 1024 },
-    }),
+    FileFieldsInterceptor(
+      [
+        { name: 'documents', maxCount: 10 },
+        { name: 'activity_documents', maxCount: 10 },
+        { name: 'supporting_documents', maxCount: 10 },
+      ],
+      {
+        storage: diskStorage({
+          destination: (req, file, cb) => {
+            let dir = './uploads/documents'
+            if (file.fieldname === 'activity_documents') dir = './uploads/documents/activity'
+            if (file.fieldname === 'supporting_documents') dir = './uploads/documents/supporting'
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+            cb(null, dir)
+          },
+          filename: (req, file, cb) => {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
+            const fileExtName = extname(file.originalname)
+            cb(null, `${file.fieldname}-${uniqueSuffix}${fileExtName}`)
+          },
+        }),
+        limits: { fileSize: 10 * 1024 * 1024 },
+      },
+    ),
   )
   async addDocuments(
     @Req() req: any,
     @Param('id', ParseIntPipe) id: number,
-    @UploadedFiles() files: Express.Multer.File[],
+    @UploadedFiles() files: { documents?: Express.Multer.File[]; activity_documents?: Express.Multer.File[]; supporting_documents?: Express.Multer.File[] },
   ) {
     const userId = req.user?.userId || req.user?.sub
     const user = await this.userService.findById(userId)
@@ -399,9 +408,10 @@ export class OpexController {
       throw new ForbiddenException('Not allowed to add documents to this activity')
     }
 
-    if (!files || files.length === 0) throw new BadRequestException('At least 1 document is required')
+    const allFiles = [...(files?.documents || []), ...(files?.activity_documents || []), ...(files?.supporting_documents || [])]
+    if (!allFiles || allFiles.length === 0) throw new BadRequestException('At least 1 document is required')
 
-    await this.service.addDocuments(id, files)
+    await this.service.addDocuments(id, allFiles)
     return this.service.findOne(id)
   }
 

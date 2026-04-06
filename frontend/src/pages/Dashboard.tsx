@@ -224,18 +224,19 @@ export default function Dashboard(){
           </select>
         </div>
       </div>
-      <table className="w-full bg-white rounded shadow text-sm">
+      <div className="w-full overflow-x-auto rounded shadow bg-white">
+      <table className="w-full min-w-full table-auto text-sm">
         <thead className="bg-gray-100">
           <tr>
             <th className="p-2 whitespace-nowrap">Tanggal</th>
-            <th className="p-2">Nama Kegiatan</th>
-            <th className="p-2 whitespace-nowrap">Group View</th>
-            <th className="p-2">Region</th>
-            <th className="p-2">Area</th>
-            <th className="p-2">Distrik</th>
-            <th className="p-2 whitespace-nowrap">Nama Toko / Penerima</th>
-            <th className="p-2">Total (PIC)</th>
-            <th className="p-2">Total (AI)</th>
+            <th className="p-2 whitespace-normal">Nama Kegiatan</th>
+            <th className="p-2 whitespace-normal">Group View</th>
+            <th className="p-2 whitespace-normal">Region</th>
+            <th className="p-2 whitespace-normal">Area</th>
+            <th className="p-2 whitespace-normal">Distrik</th>
+            <th className="p-2 whitespace-normal">Nama Toko / Penerima</th>
+            <th className="p-2 whitespace-nowrap">Total (PIC)</th>
+            <th className="p-2 whitespace-nowrap">Total (AI)</th>
             <th className="p-2">Status</th>
             <th className="p-2">Aksi</th>
           </tr>
@@ -246,13 +247,13 @@ export default function Dashboard(){
           ) : filteredItems.map(i=> (
             <tr key={i.id} className={`border-t ${i.status==='PERLU_REVIEW' ? 'bg-yellow-50' : (i.status==='OK' || i.status==='TELAH_DIREVIEW') ? 'bg-green-50' : ''}`}>
               <td className="p-2 whitespace-nowrap">{i.transaction_date ? new Date(i.transaction_date).toLocaleDateString() : '-'}</td>
-              <td className="p-2">{i.item_name || '-'}</td>
-              <td className="p-2 whitespace-nowrap">{i.group_views?.name || '-'}</td>
-              <td className="p-2 whitespace-nowrap">{i.districts?.areas?.regions?.name || '-'}</td>
-              <td className="p-2 whitespace-nowrap">{i.districts?.areas?.name || '-'}</td>
-              <td className="p-2 whitespace-nowrap">{i.districts?.name || '-'}</td>
-              <td className="p-2">{i.recipient_name || '-'}</td>
-              <td className="p-2">{formatRupiah(i.amount)}</td>
+              <td className="p-2 whitespace-normal break-words">{i.item_name || '-'}</td>
+              <td className="p-2 whitespace-normal break-words">{i.group_views?.name || '-'}</td>
+              <td className="p-2 whitespace-normal break-words">{i.districts?.areas?.regions?.name || '-'}</td>
+              <td className="p-2 whitespace-normal break-words">{i.districts?.areas?.name || '-'}</td>
+              <td className="p-2 whitespace-normal break-words">{i.districts?.name || '-'}</td>
+              <td className="p-2 whitespace-normal break-words">{i.recipient_name || '-'}</td>
+              <td className="p-2 whitespace-nowrap">{formatRupiah(i.amount)}</td>
               <td className="p-2">
                 <div className="flex items-center gap-2">
                   <span>{formatRupiah(i.total_ocr ?? 0)}</span>
@@ -261,8 +262,8 @@ export default function Dashboard(){
                   )}
                 </div>
               </td>
-              <td className="p-2">{i.status || '-'}</td>
-              <td className="p-2 space-x-2">
+              <td className="p-2 whitespace-nowrap">{i.status || '-'}</td>
+              <td className="p-2 space-x-2 whitespace-nowrap">
                 <Link className="text-blue-600" to={`/activity/${i.id}`}>Lihat</Link>
                 <button onClick={()=>remove(i.id)} className="text-red-600">Hapus</button>
               </td>
@@ -270,6 +271,7 @@ export default function Dashboard(){
           ))}
         </tbody>
       </table>
+      </div>
       {loading && <div className="mt-2 text-sm text-gray-500">Loading...</div>}
       <div className="mt-3 flex justify-between items-center">
         <div>
