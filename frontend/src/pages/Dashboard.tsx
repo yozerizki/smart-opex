@@ -110,6 +110,7 @@ export default function Dashboard(){
       if (filterRegion) queryParams.append('region_id', filterRegion)
       if (filterArea) queryParams.append('area_id', filterArea)
       if (filterDistrict) queryParams.append('district_id', filterDistrict)
+      if (filterMonth) queryParams.append('month', filterMonth)
 
       const queryString = queryParams.toString()
       const url = `/opex/export${queryString ? '?' + queryString : ''}`

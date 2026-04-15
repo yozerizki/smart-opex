@@ -155,7 +155,7 @@ export class OpexService {
 
   async exportForUser(
     userId: number,
-    filters?: { region_id?: number; area_id?: number; district_id?: number }
+    filters?: { region_id?: number; area_id?: number; district_id?: number; month?: string }
   ) {
     // fetch user with both area and district relations
     const user = await this.prisma.users.findUnique({
@@ -188,6 +188,23 @@ export class OpexService {
       }
     }
 
+    const month = (filters?.month || '').trim()
+    if (month) {
+      const parsed = month.match(/^(\d{4})-(\d{2})$/)
+      if (parsed) {
+        const year = Number(parsed[1])
+        const monthIndex = Number(parsed[2])
+        if (monthIndex >= 1 && monthIndex <= 12) {
+          const start = new Date(Date.UTC(year, monthIndex - 1, 1, 0, 0, 0, 0))
+          const end = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0, 0))
+          where.transaction_date = {
+            gte: start,
+            lt: end,
+          }
+        }
+      }
+    }
+
     const activities = await this.prisma.opex_items.findMany({
       where: Object.keys(where).length ? where : undefined,
       include: {
@@ -202,8 +219,15 @@ export class OpexService {
     const picName = user?.user_profiles?.full_name || 'PIC'
     const picArea = (user as any)?.areas?.name || user?.districts?.areas?.name || 'N/A'
     const now = new Date()
-    const monthName = new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(now)
-    const year = now.getFullYear()
+    const selectedMonth = (filters?.month || '').trim()
+    const selectedMonthMatch = selectedMonth.match(/^(\d{4})-(\d{2})$/)
+    const periodDate = selectedMonthMatch
+      ? new Date(Number(selectedMonthMatch[1]), Number(selectedMonthMatch[2]) - 1, 1)
+      : now
+    const monthName = new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(periodDate)
+    const year = periodDate.getFullYear()
+    const periodLabel = `${monthName} ${year}`.toUpperCase()
+    const areaLabel = String(picArea || 'N/A').toUpperCase()
     const filename = `kuitansi-${userId}-${Date.now()}.xlsx`
 
     // create workbook
@@ -212,17 +236,24 @@ export class OpexService {
 
     // set column widths
     worksheet.columns = [
-      { width: 6 },   // nomor
-      { width: 30 },  // Deskripsi transaksi
-      { width: 15 },  // Group View
-      { width: 25 },  // nama toko
-      { width: 12 },  // tanggal
-      { width: 18 },  // jumlah
+      { width: 6 },   // No.
+      { width: 34 },  // Keterangan Transaksi
+      { width: 18 },  // Group View
+      { width: 28 },  // Nama Toko/Penerima
+      { width: 14 },  // Tanggal
+      { width: 18 },  // Jumlah
+      { width: 20 },  // Keterangan
+      { width: 24 },  // Konfirmasi area
+      { width: 24 },  // Keterangan area
+      { width: 16 },  // GL Number
+      { width: 14 },  // Nilai PPN
+      { width: 14 },  // Nilai PPH
+      { width: 22 },  // NPWP atau NIK
     ]
 
     // title
     let currentRow = 1
-    worksheet.mergeCells(`A${currentRow}:F${currentRow}`)
+    worksheet.mergeCells(`A${currentRow}:M${currentRow}`)
     const titleCell = worksheet.getCell(`A${currentRow}`)
     titleCell.value = 'RINCIAN KUITANSI/NOTA SETTLEMENT CASH CARD'
     titleCell.font = { bold: true, size: 12 }
@@ -230,18 +261,19 @@ export class OpexService {
     currentRow++
 
     // subtitle
-    worksheet.mergeCells(`A${currentRow}:F${currentRow}`)
+    worksheet.mergeCells(`A${currentRow}:M${currentRow}`)
     const subtitleCell = worksheet.getCell(`A${currentRow}`)
-    subtitleCell.value = `Dana Operasional PT. Pertamina Gas ${picArea} Bulan ${monthName} ${year}`
+    subtitleCell.value = `PERTANGGUNGJAWABAN DANA OPERASIONAL ${periodLabel}`
     subtitleCell.font = { bold: true, size: 11 }
     subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' }
     currentRow++
 
     // lokasi
-    worksheet.mergeCells(`A${currentRow}:F${currentRow}`)
+    worksheet.mergeCells(`A${currentRow}:M${currentRow}`)
     const lokasiCell = worksheet.getCell(`A${currentRow}`)
-    lokasiCell.value = `Lokasi: ${picArea}`
+    lokasiCell.value = `Lokasi: PT PERTAMINA GAS ${areaLabel}`
     lokasiCell.font = { italic: true, size: 10 }
+    lokasiCell.alignment = { horizontal: 'center', vertical: 'middle' }
     currentRow++
 
     // empty row
@@ -262,15 +294,22 @@ export class OpexService {
 
     // table header
     const headerRow = currentRow
-    worksheet.getCell(`A${headerRow}`).value = 'Nomor'
-    worksheet.getCell(`B${headerRow}`).value = 'Deskripsi Transaksi'
+    worksheet.getCell(`A${headerRow}`).value = 'No.'
+    worksheet.getCell(`B${headerRow}`).value = 'Keterangan Transaksi'
     worksheet.getCell(`C${headerRow}`).value = 'Group View'
-    worksheet.getCell(`D${headerRow}`).value = 'Nama Toko'
+    worksheet.getCell(`D${headerRow}`).value = 'Nama Toko/Penerima'
     worksheet.getCell(`E${headerRow}`).value = 'Tanggal'
     worksheet.getCell(`F${headerRow}`).value = 'Jumlah'
+    worksheet.getCell(`G${headerRow}`).value = 'Keterangan'
+    worksheet.getCell(`H${headerRow}`).value = `Konfirmasi ${areaLabel}`
+    worksheet.getCell(`I${headerRow}`).value = `Keterangan ${areaLabel}`
+    worksheet.getCell(`J${headerRow}`).value = 'GL Number'
+    worksheet.getCell(`K${headerRow}`).value = 'Nilai PPN'
+    worksheet.getCell(`L${headerRow}`).value = 'Nilai PPH'
+    worksheet.getCell(`M${headerRow}`).value = 'NPWP atau NIK'
 
     // header styling
-    for (let col = 1; col <= 6; col++) {
+    for (let col = 1; col <= 13; col++) {
       const cell = worksheet.getCell(headerRow, col)
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }
@@ -289,6 +328,13 @@ export class OpexService {
         ? new Date(activity.transaction_date).toLocaleDateString('id-ID')
         : ''
       worksheet.getCell(`F${dataRow}`).value = Number(activity.amount || 0)
+      worksheet.getCell(`G${dataRow}`).value = ''
+      worksheet.getCell(`H${dataRow}`).value = ''
+      worksheet.getCell(`I${dataRow}`).value = ''
+      worksheet.getCell(`J${dataRow}`).value = ''
+      worksheet.getCell(`K${dataRow}`).value = ''
+      worksheet.getCell(`L${dataRow}`).value = ''
+      worksheet.getCell(`M${dataRow}`).value = ''
 
       // align numbers to right
       worksheet.getCell(`F${dataRow}`).alignment = { horizontal: 'right' }

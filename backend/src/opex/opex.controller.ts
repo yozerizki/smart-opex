@@ -93,6 +93,7 @@ export class OpexController {
     @Query('region_id') regionId?: string,
     @Query('area_id') areaId?: string,
     @Query('district_id') districtId?: string,
+    @Query('month') month?: string,
   ) {
     const userId = req.user?.userId || req.user?.sub
 
@@ -100,6 +101,7 @@ export class OpexController {
     if (regionId) filters.region_id = Number(regionId)
     if (areaId) filters.area_id = Number(areaId)
     if (districtId) filters.district_id = Number(districtId)
+    if (month) filters.month = month
 
     const result = await this.service.exportForUser(userId, filters)
     res.setHeader('Content-Type', result.contentType || 'application/octet-stream')

@@ -19,30 +19,21 @@ import { Roles } from '../auth/roles.decorator'
 
 const ENGINE_DIR = path.join(process.cwd(), 'uploads', 'ocr-engine')
 const ENGINE_CONFIG_PATH = path.join(ENGINE_DIR, 'current.json')
-const ENGINE_FILE_REGEX = /^smartopex-engine-v(\d+)\.py$/i
 
-function getNextEngineFileName() {
-  if (!fs.existsSync(ENGINE_DIR)) {
-    return 'smartopex-engine-v1.py'
+function getIncrementedEngineFileName(originalName: string) {
+  const baseName = path.basename(originalName || '').trim()
+  const parsed = path.parse(baseName)
+  const ext = parsed.ext || '.py'
+  const stem = parsed.name || 'engine'
+
+  let candidate = `${stem}${ext}`
+  let counter = 1
+  while (fs.existsSync(path.join(ENGINE_DIR, candidate))) {
+    candidate = `${stem} (${counter})${ext}`
+    counter += 1
   }
 
-  const maxVersion = fs
-    .readdirSync(ENGINE_DIR)
-    .map((name) => {
-      const match = name.match(ENGINE_FILE_REGEX)
-      return match ? Number(match[1]) : 0
-    })
-    .reduce((max, current) => Math.max(max, current), 0)
-
-  let nextVersion = maxVersion + 1
-  let nextFileName = `smartopex-engine-v${nextVersion}.py`
-
-  while (fs.existsSync(path.join(ENGINE_DIR, nextFileName))) {
-    nextVersion += 1
-    nextFileName = `smartopex-engine-v${nextVersion}.py`
-  }
-
-  return nextFileName
+  return candidate
 }
 
 @Controller('ocr/engine')
@@ -142,7 +133,7 @@ export class OcrEngineController {
           cb(null, ENGINE_DIR)
         },
         filename: (req, file, cb) => {
-          cb(null, getNextEngineFileName())
+          cb(null, getIncrementedEngineFileName(file.originalname))
         },
       }),
       fileFilter: (req, file, cb) => {
