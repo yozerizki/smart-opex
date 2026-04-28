@@ -19,7 +19,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: npm run start:dev
+    command: sh /app/scripts/bootstrap-dev.sh
     environment:
       DATABASE_URL: postgresql://smartopex:smartopex@db:5432/smartopex
       REDIS_URL: redis://redis:6379

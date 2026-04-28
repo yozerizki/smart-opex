@@ -25,6 +25,8 @@ import { diskStorage } from 'multer'
 import { extname } from 'path'
 import * as fs from 'fs'
 
+const CORE_ACCOUNT_EMAILS = new Set(['pusat@smartopex.local', 'verifikator@smartopex.local'])
+
 @Controller('users')
 export class UserController {
   constructor(private userService: UserService) {}
@@ -235,6 +237,10 @@ export class UserController {
 
     const existing = await this.userService.findById(id)
     if (!existing) throw new BadRequestException('User not found')
+
+    if (CORE_ACCOUNT_EMAILS.has(existing.email)) {
+      throw new BadRequestException('Core account cannot be deleted')
+    }
 
     if (actor.role === 'verifikator') {
       const sameAreaVerifikator = existing.role === 'verifikator' && existing.area_id === actor.area_id

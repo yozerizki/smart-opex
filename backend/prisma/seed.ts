@@ -4,27 +4,6 @@ import * as bcrypt from 'bcrypt'
 const prisma = new PrismaClient()
 
 async function main() {
-  // cleanup dependent rows so hierarchy and master refs can be reset safely
-  await prisma.$transaction(async (tx) => {
-    await tx.ocr_results.deleteMany({})
-    await tx.documents.deleteMany({})
-    await tx.opex_receipts.deleteMany({})
-    await tx.opex_items.deleteMany({})
-    await tx.audit_logs.deleteMany({})
-
-    await tx.users.updateMany({
-      data: {
-        district_id: null,
-        area_id: null,
-      },
-    })
-
-    await tx.districts.deleteMany({})
-    await tx.areas.deleteMany({})
-    await tx.regions.deleteMany({})
-    await tx.group_views.deleteMany({})
-  })
-
   const groupViews = [
     'Meal, Drink & Snack',
     'Non Core Activity (BAPOR, Komunitas, Etc)',
@@ -73,27 +52,41 @@ async function main() {
     skipDuplicates: true,
   })
 
-  const regionWest = await prisma.regions.create({
-    data: { name: 'Operation West Regional' },
+  const regionWest = await prisma.regions.upsert({
+    where: { name: 'Operation West Regional' },
+    update: {},
+    create: { name: 'Operation West Regional' },
   })
 
-  const regionEast = await prisma.regions.create({
-    data: { name: 'Operation East Regional' },
+  const regionEast = await prisma.regions.upsert({
+    where: { name: 'Operation East Regional' },
+    update: {},
+    create: { name: 'Operation East Regional' },
   })
 
-  await prisma.areas.createMany({
-    data: [
-      { region_id: regionWest.id, name: 'Operation North Sumatra Area' },
-      { region_id: regionWest.id, name: 'Operation Central Sumatra Area' },
-      { region_id: regionWest.id, name: 'Operation South Sumatra Area' },
-      { region_id: regionWest.id, name: 'Operation Dumai Area' },
-      { region_id: regionWest.id, name: 'Operation Rokan Area' },
-      { region_id: regionEast.id, name: 'Operation West Java Area' },
-      { region_id: regionEast.id, name: 'Operation East Java Area' },
-      { region_id: regionEast.id, name: 'Operation Kalimantan Area' },
-    ],
-    skipDuplicates: true,
-  })
+  const areas = [
+    { region_id: regionWest.id, name: 'Operation North Sumatra Area' },
+    { region_id: regionWest.id, name: 'Operation Central Sumatra Area' },
+    { region_id: regionWest.id, name: 'Operation South Sumatra Area' },
+    { region_id: regionWest.id, name: 'Operation Dumai Area' },
+    { region_id: regionWest.id, name: 'Operation Rokan Area' },
+    { region_id: regionEast.id, name: 'Operation West Java Area' },
+    { region_id: regionEast.id, name: 'Operation East Java Area' },
+    { region_id: regionEast.id, name: 'Operation Kalimantan Area' },
+  ]
+
+  for (const area of areas) {
+    await prisma.areas.upsert({
+      where: {
+        region_id_name: {
+          region_id: area.region_id,
+          name: area.name,
+        },
+      },
+      update: {},
+      create: area,
+    })
+  }
 
   const passwordHash = await bcrypt.hash('password123', 10)
   const oeja = await prisma.areas.findFirst({ where: { name: 'Operation East Java Area' } })
@@ -104,10 +97,10 @@ async function main() {
   const verifikator = await prisma.users.upsert({
     where: { email: 'verifikator@smartopex.local' },
     update: {
-      password_hash: passwordHash,
       role: 'verifikator',
       area_id: oeja.id,
       district_id: null,
+      is_active: true,
     },
     create: {
       email: 'verifikator@smartopex.local',
@@ -121,10 +114,10 @@ async function main() {
   await prisma.users.upsert({
     where: { email: 'pusat@smartopex.local' },
     update: {
-      password_hash: passwordHash,
       role: 'pusat',
       district_id: null,
       area_id: null,
+      is_active: true,
     },
     create: {
       email: 'pusat@smartopex.local',
