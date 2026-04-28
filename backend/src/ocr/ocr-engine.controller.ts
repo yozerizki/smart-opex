@@ -39,7 +39,7 @@ function getIncrementedEngineFileName(originalName: string) {
 @Controller('ocr/engine')
 export class OcrEngineController {
   private getFallbackPath() {
-    return process.env.OCR_SCRIPT_PATH || path.join(process.cwd(), 'scripts/ocr/paddle_ocr_dummy.py')
+    return process.env.OCR_SCRIPT_PATH || path.join(process.cwd(), 'scripts/ocr/paddle_ocr_v6.py')
   }
 
   private getCurrentScriptPath() {
