@@ -24,7 +24,7 @@ services:
       DATABASE_URL: postgresql://smartopex:smartopex@db:5432/smartopex
       REDIS_URL: redis://redis:6379
       FRONTEND_ORIGINS: http://${APP_HOST:-localhost}:${FRONTEND_PORT:-5173}
-      OCR_PYTHON: ${OCR_PYTHON:-/usr/bin/python3}
+      OCR_PYTHON: ${OCR_PYTHON:-/opt/venv/bin/python}
       # OCR_SCRIPT_PATH can be managed dynamically from web UI (uploads/ocr-engine/current.json)
       # OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr_dummy.py
       # OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr_v3.py
@@ -46,7 +46,7 @@ services:
     environment:
       DATABASE_URL: postgresql://smartopex:smartopex@db:5432/smartopex
       REDIS_URL: redis://redis:6379
-      OCR_PYTHON: ${OCR_PYTHON:-/usr/bin/python3}
+      OCR_PYTHON: ${OCR_PYTHON:-/opt/venv/bin/python}
       # OCR_SCRIPT_PATH can be managed dynamically from web UI (uploads/ocr-engine/current.json)
       # OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr_dummy.py
       # OCR_SCRIPT_PATH: /app/scripts/ocr/paddle_ocr_v3.py

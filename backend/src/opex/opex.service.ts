@@ -87,6 +87,46 @@ export class OpexService {
     return documents
   }
 
+  async retryOcrForActivity(opexId: number) {
+    const receipts = await this.prisma.opex_receipts.findMany({
+      where: { opex_item_id: opexId },
+      orderBy: { id: 'asc' },
+    })
+
+    for (const receipt of receipts) {
+      const document = await this.prisma.documents.findFirst({
+        where: {
+          opex_item_id: opexId,
+          file_path: receipt.file_path,
+        },
+        orderBy: { id: 'asc' },
+      })
+
+      if (!document) {
+        console.warn(`Skip retry OCR for receipt ${receipt.id}: document not found`)
+        continue
+      }
+
+      await this.prisma.opex_receipts.update({
+        where: { id: receipt.id },
+        data: { ocr_detected_total: null },
+      })
+
+      try {
+        await this.ocrService.enqueueReceiptOcr({
+          receiptId: receipt.id,
+          opexItemId: opexId,
+          documentId: document.id,
+          filePath: receipt.file_path,
+        })
+      } catch (err) {
+        console.error(`Failed to enqueue OCR retry for receipt ${receipt.id}`, err)
+      }
+    }
+
+    await this.ocrStatusService.recomputeOpexStatus(opexId)
+  }
+
   recomputeOcrStatus(opexId: number) {
     return this.ocrStatusService.recomputeOpexStatus(opexId)
   }

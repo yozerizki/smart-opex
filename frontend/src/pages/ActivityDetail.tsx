@@ -23,6 +23,7 @@ export default function ActivityDetail(){
   const [deletedReceiptIds, setDeletedReceiptIds] = useState<number[]>([])
   const [deletedDocumentIds, setDeletedDocumentIds] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
+  const [retryingOcr, setRetryingOcr] = useState(false)
   const navigate = useNavigate()
 
   function formatThousand(value: number) {
@@ -121,6 +122,27 @@ export default function ActivityDetail(){
     return () => clearInterval(interval)
   }, [review, hasPendingOcr])
 
+  async function handleRetryOcr(){
+    if (retryingOcr) return
+    if (!review?.receipts?.length) {
+      alert('Belum ada nota untuk diproses OCR')
+      return
+    }
+
+    if (!window.confirm('Ulang OCR untuk semua nota pada activity ini? Hasil OCR lama akan diganti.')) return
+
+    setRetryingOcr(true)
+    try {
+      await api.post(`/opex/${id}/retry-ocr`, {})
+      await fetchReview()
+      alert('OCR berhasil dijadwalkan ulang. Silakan tunggu beberapa saat.')
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Gagal mengulang OCR')
+    } finally {
+      setRetryingOcr(false)
+    }
+  }
+
   return (
     <div>
       {!review ? <div>Memuat...</div> : (
@@ -206,6 +228,16 @@ export default function ActivityDetail(){
 
                 <div className="mt-3">
                   <div><strong>Status:</strong> {review.status}</div>
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={handleRetryOcr}
+                      disabled={retryingOcr || saving || editing}
+                      className="px-3 py-1 bg-blue-100 text-sm border rounded disabled:opacity-50"
+                    >
+                      {retryingOcr ? 'Mengulang OCR...' : 'Ulang OCR'}
+                    </button>
+                  </div>
                   {review.status === 'PERLU_REVIEW' && allReceiptsViewed && (
                     <div className="mt-2 flex items-center gap-3">
                       <div className="text-sm text-gray-600">invoice sudah benar / AI salah baca?</div>

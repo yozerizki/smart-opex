@@ -322,6 +322,25 @@ export class OpexController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post(':id/retry-ocr')
+  async retryOcr(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+    const userId = req.user?.userId || req.user?.sub
+    const user = await this.userService.findById(userId)
+    const activity = await this.service.findOne(id)
+    if (!activity) throw new ForbiddenException('Activity not found')
+    if (!user) throw new ForbiddenException('User not found')
+    if (user.role === 'pic' && user.district_id !== activity.district_id) {
+      throw new ForbiddenException('Not allowed to retry OCR for this activity')
+    }
+    if (user.role === 'verifikator' && activity.districts?.area_id !== user.area_id) {
+      throw new ForbiddenException('Not allowed to retry OCR for this activity')
+    }
+
+    await this.service.retryOcrForActivity(id)
+    return this.service.findOne(id)
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post(':id/receipts')
   @UseInterceptors(
     FilesInterceptor('receipts', 10, {
