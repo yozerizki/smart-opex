@@ -23,22 +23,14 @@ export default function BackupRestore() {
     })
   }, [])
 
-  function askPassword(action: 'backup' | 'restore') {
-    const label = action === 'backup' ? 'backup' : 'restore'
-    const password = window.prompt(`Konfirmasi ${label}: masukkan password akun pusat`) || ''
-    return password.trim()
-  }
-
   async function handleBackup() {
-    const password = askPassword('backup')
-    if (!password) return
     if (!window.confirm('Yakin ingin membuat file backup terbaru? File backup lama akan diganti.')) return
 
     setLoading(true)
     try {
       const res = await api.post(
         '/backup-restore/backup',
-        { password },
+        {},
         { responseType: 'blob' },
       )
 
@@ -72,13 +64,11 @@ export default function BackupRestore() {
       return
     }
 
-    const password = askPassword('restore')
-    if (!password) return
     if (!window.confirm('Yakin ingin restore data? Seluruh data saat ini akan ditimpa.')) return
 
     setLoading(true)
     try {
-      await api.post('/backup-restore/restore', { password })
+      await api.post('/backup-restore/restore', {})
       await fetchStatus()
       alert('Restore berhasil. Silakan refresh halaman dashboard.')
     } catch (err: any) {

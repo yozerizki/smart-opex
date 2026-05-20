@@ -322,10 +322,9 @@ Halaman ini menampilkan status file backup yang tersimpan di server: nama file, 
 
 **Membuat Backup:**
 1. Tekan tombol **backup**.
-2. Masukkan **password akun Pusat** pada dialog konfirmasi yang muncul.
-3. Tekan **OK** pada konfirmasi lanjutan.
-4. File backup akan diunduh otomatis ke perangkat dengan format `.tar.gz`.
-5. File backup juga tersimpan di server sebagai cadangan untuk proses restore.
+2. Konfirmasi permintaan yang muncul dengan menekan **OK**.
+3. File backup akan diunduh otomatis ke perangkat dengan format `.tar.gz`.
+4. File backup juga tersimpan di server sebagai cadangan untuk proses restore.
 
 Isi file backup mencakup:
 - Seluruh data database (kegiatan, pengguna, dokumen, hasil OCR, dll).
@@ -337,10 +336,9 @@ Isi file backup mencakup:
 
 1. Pastikan file backup sudah tersedia (status "Tersedia" pada halaman backup/restore).
 2. Tekan tombol **restore**.
-3. Masukkan **password akun Pusat** pada dialog konfirmasi yang muncul.
-4. Tekan **OK** pada konfirmasi lanjutan.
-5. Tunggu hingga muncul notifikasi "Restore berhasil".
-6. Refresh halaman browser setelah restore selesai.
+3. Konfirmasi permintaan yang muncul dengan menekan **OK**.
+4. Tunggu hingga muncul notifikasi "Restore berhasil".
+5. Refresh halaman browser setelah restore selesai.
 
 **Skenario migrasi ke server baru:**
 1. Di server lama: lakukan backup dan simpan file `.tar.gz` yang terunduh.
