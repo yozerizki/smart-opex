@@ -7,9 +7,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { OpexModule } from './opex/opex.module';
 import { DistrictModule } from './district/district.module';
 import { GroupViewModule } from './group-view/group-view.module';
+import { BackupRestoreModule } from './backup-restore/backup-restore.module';
 
 @Module({
-  imports: [PrismaModule, UserModule, AuthModule, OpexModule, DistrictModule, GroupViewModule],
+  imports: [PrismaModule, UserModule, AuthModule, OpexModule, DistrictModule, GroupViewModule, BackupRestoreModule],
   controllers: [AppController],
   providers: [AppService],
 })

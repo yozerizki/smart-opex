@@ -9,6 +9,7 @@ import ManageDistrict from './pages/ManageDistrict'
 import ManageGroupView from './pages/ManageGroupView'
 import ChangePassword from './pages/ChangePassword'
 import EngineAI from './pages/EngineAI'
+import BackupRestore from './pages/BackupRestore'
 import api from './api'
 
 export default function App(){
@@ -128,6 +129,7 @@ export default function App(){
               {isPusat && (
                 <>
                   <Link to="/engine-ai" className="text-sm text-blue-600">Engine AI</Link>
+                  <Link to="/backup-restore" className="text-sm text-blue-600">backup/restore</Link>
                   <Link to="/manage-district" className="text-sm text-blue-600">Manage District</Link>
                   <Link to="/manage-group-view" className="text-sm text-blue-600">Manage Group View</Link>
                 </>
@@ -159,6 +161,7 @@ export default function App(){
         <Route path="/manage-group-view" element={authCheck() && isPusat ? <ManageGroupView/> : <Navigate to="/" replace />} />
         <Route path="/change-password" element={authCheck() ? <ChangePassword/> : <Navigate to="/login" replace />} />
         <Route path="/engine-ai" element={authCheck() && isPusat ? <EngineAI/> : <Navigate to="/" replace />} />
+        <Route path="/backup-restore" element={authCheck() && isPusat ? <BackupRestore/> : <Navigate to="/" replace />} />
       </Routes>
       <div style={{fontSize: '0.7rem'}} className="mt-6 text-center text-gray-400">
         developed by <a href="https://www.instagram.com/pertagasoeja" className="text-blue-600 underline">PT. Pertamina Gas Operation East Java Area (OEJA)</a> for <a href="https://pertagas.pertamina.com" target="_blank" rel="noreferrer" className="text-blue-600 underline">PT. Pertamina Gas</a> - 2026
