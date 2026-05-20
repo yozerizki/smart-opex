@@ -64,7 +64,13 @@ export default function BackupRestore() {
       return
     }
 
-    if (!window.confirm('Yakin ingin restore data? Seluruh data saat ini akan ditimpa.')) return
+    const confirmMessage = [
+      'PERINGATAN: proses restore akan menghapus/mengganti data yang ada saat ini dengan data dari file backup.',
+      'Perubahan ini tidak bisa dibatalkan.',
+      'Lanjutkan restore sekarang?'
+    ].join('\n\n')
+
+    if (!window.confirm(confirmMessage)) return
 
     setLoading(true)
     try {
@@ -89,6 +95,14 @@ export default function BackupRestore() {
         <div>Ukuran: {status?.hasBackup ? `${sizeMb} MB` : '-'}</div>
         <div>Update terakhir: {status?.updatedAt ? new Date(status.updatedAt).toLocaleString() : '-'}</div>
         <div className="text-xs text-gray-500">Maksimal satu file backup disimpan di server. Backup baru akan menggantikan file sebelumnya.</div>
+      </div>
+
+      <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div className="font-semibold">Peringatan Restore</div>
+        <div>
+          Saat tombol restore ditekan dan dikonfirmasi, data saat ini akan dihapus/diganti dengan data dari backup.
+          Pastikan file backup yang tersedia memang benar sebelum melanjutkan.
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">

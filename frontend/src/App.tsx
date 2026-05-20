@@ -129,7 +129,7 @@ export default function App(){
               {isPusat && (
                 <>
                   <Link to="/engine-ai" className="text-sm text-blue-600">Engine AI</Link>
-                  <Link to="/backup-restore" className="text-sm text-blue-600">backup/restore</Link>
+                  <Link to="/backup-restore" className="text-sm text-blue-600">Backup / Restore</Link>
                   <Link to="/manage-district" className="text-sm text-blue-600">Manage District</Link>
                   <Link to="/manage-group-view" className="text-sm text-blue-600">Manage Group View</Link>
                 </>
