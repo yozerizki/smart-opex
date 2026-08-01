@@ -1,5 +1,7 @@
 import { Client as PgClient } from 'pg'
 import sql from 'mssql'
+import * as fs from 'fs/promises'
+import * as path from 'path'
 
 const TABLES = [
   'group_views',
@@ -15,6 +17,13 @@ const TABLES = [
   'opex_receipts',
   'audit_logs',
 ] as const
+
+interface ValidationRowReport {
+  table: string
+  pgCount: number
+  mssqlCount: number
+  match: boolean
+}
 
 function assertRequiredEnv(name: string) {
   const value = process.env[name]
@@ -34,6 +43,7 @@ function escapeTableName(name: string) {
 async function run() {
   const pgSourceUrl = assertRequiredEnv('PG_SOURCE_URL')
   const mssqlTargetUrl = assertRequiredEnv('MSSQL_TARGET_URL')
+  const reportPath = process.env.MIGRATION_VALIDATION_REPORT_PATH
 
   const pgClient = new PgClient({ connectionString: pgSourceUrl })
   const mssqlPool = new sql.ConnectionPool(mssqlTargetUrl)
@@ -42,6 +52,7 @@ async function run() {
   await mssqlPool.connect()
 
   let hasMismatch = false
+  const rows: ValidationRowReport[] = []
 
   try {
     for (const rawTableName of TABLES) {
@@ -55,6 +66,12 @@ async function run() {
 
       const status = pgCount === msCount ? 'OK' : 'MISMATCH'
       console.log(`${status} - ${tableName}: pg=${pgCount}, mssql=${msCount}`)
+      rows.push({
+        table: tableName,
+        pgCount,
+        mssqlCount: msCount,
+        match: pgCount === msCount,
+      })
 
       if (pgCount !== msCount) {
         hasMismatch = true
@@ -63,6 +80,27 @@ async function run() {
   } finally {
     await pgClient.end()
     await mssqlPool.close()
+  }
+
+  if (reportPath) {
+    const absolutePath = path.isAbsolute(reportPath)
+      ? reportPath
+      : path.join(process.cwd(), reportPath)
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true })
+    await fs.writeFile(
+      absolutePath,
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          hasMismatch,
+          rows,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+    console.log(`Validation report written to ${absolutePath}`)
   }
 
   if (hasMismatch) {
