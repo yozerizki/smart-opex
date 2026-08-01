@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { ConfigModule, ConfigService } from '@nestjs/config'
 import { BullModule } from '@nestjs/bullmq'
 import { OcrService } from './ocr.service'
 import { OcrStatusService } from './ocr-status.service'
@@ -8,14 +9,19 @@ import { OcrEngineController } from './ocr-engine.controller'
 @Module({
   imports: [
     PrismaModule,
-    BullModule.registerQueue({
-      name: 'ocr',
-      connection: process.env.REDIS_URL
-        ? { url: process.env.REDIS_URL }
-        : {
-            host: process.env.REDIS_HOST || '127.0.0.1',
-            port: Number(process.env.REDIS_PORT || 6379),
-          },
+    ConfigModule,
+    BullModule.registerQueueAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        name: 'ocr',
+        connection: configService.get<string>('REDIS_URL')
+          ? { url: configService.getOrThrow<string>('REDIS_URL') }
+          : {
+              host: configService.get<string>('REDIS_HOST') || '127.0.0.1',
+              port: Number(configService.get<string>('REDIS_PORT') || 6379),
+            },
+      }),
     }),
   ],
   providers: [OcrService, OcrStatusService],

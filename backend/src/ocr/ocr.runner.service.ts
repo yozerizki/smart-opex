@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { spawn } from 'child_process'
 import * as fs from 'fs/promises'
 import * as path from 'path'
@@ -12,8 +13,10 @@ interface OcrRunnerResult {
 
 @Injectable()
 export class OcrRunnerService {
+  constructor(private readonly configService: ConfigService) {}
+
   async runReceiptOcr(filePath: string): Promise<OcrRunnerResult> {
-    const provider = (process.env.OCR_PROVIDER || 'paddle').toLowerCase()
+    const provider = (this.configService.get<string>('OCR_PROVIDER') || 'paddle').toLowerCase()
     if (provider === 'external') {
       return this.runExternalOcr(filePath)
     }
@@ -21,7 +24,7 @@ export class OcrRunnerService {
   }
 
   private async runPaddleOcr(filePath: string): Promise<OcrRunnerResult> {
-    const python = process.env.OCR_PYTHON || 'python3'
+    const python = this.configService.get<string>('OCR_PYTHON') || 'python3'
     const scriptPath = await this.resolveScriptPath()
 
     const output = await this.runProcess(python, [
@@ -60,7 +63,7 @@ export class OcrRunnerService {
   }
 
   private async runExternalOcr(filePath: string): Promise<OcrRunnerResult> {
-    const endpoint = process.env.OCR_ENDPOINT
+    const endpoint = this.configService.get<string>('OCR_ENDPOINT')
     if (!endpoint) {
       throw new Error('OCR_ENDPOINT is required when OCR_PROVIDER=external')
     }
@@ -75,8 +78,9 @@ export class OcrRunnerService {
     const timer = setTimeout(() => controller.abort(), 120000)
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (process.env.OCR_ENDPOINT_TOKEN) {
-      headers.Authorization = `Bearer ${process.env.OCR_ENDPOINT_TOKEN}`
+    const endpointToken = this.configService.get<string>('OCR_ENDPOINT_TOKEN')
+    if (endpointToken) {
+      headers.Authorization = `Bearer ${endpointToken}`
     }
 
     const res = await fetch(endpoint, {
@@ -140,8 +144,12 @@ export class OcrRunnerService {
   }
 
   private async resolveScriptPath(): Promise<string> {
-    const fallback = process.env.OCR_SCRIPT_PATH || path.join(process.cwd(), 'scripts/ocr/paddle_ocr_v6.py')
-    const configPath = process.env.OCR_ENGINE_CONFIG_PATH || path.join(process.cwd(), 'uploads/ocr-engine/current.json')
+    const fallback =
+      this.configService.get<string>('OCR_SCRIPT_PATH') ||
+      path.join(process.cwd(), 'scripts/ocr/paddle_ocr_v6.py')
+    const configPath =
+      this.configService.get<string>('OCR_ENGINE_CONFIG_PATH') ||
+      path.join(process.cwd(), 'uploads/ocr-engine/current.json')
 
     try {
       const raw = await fs.readFile(configPath, 'utf8')
