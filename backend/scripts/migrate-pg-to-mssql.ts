@@ -89,7 +89,7 @@ async function insertChunk(
   await request.query(query)
 }
 
-async function run() {
+export async function run() {
   const pgSourceUrl = assertRequiredEnv('PG_SOURCE_URL')
   const mssqlTargetUrl = assertRequiredEnv('MSSQL_TARGET_URL')
   const shouldTruncate = toBool(process.env.MIGRATION_TRUNCATE_BEFORE_LOAD, true)
@@ -215,7 +215,9 @@ async function run() {
   }
 }
 
-run().catch((error) => {
-  console.error('Migration failed:', error)
-  process.exit(1)
-})
+if (typeof require !== 'undefined' && require.main === module) {
+  run().catch((error) => {
+    console.error('Migration failed:', error)
+    process.exit(1)
+  })
+}

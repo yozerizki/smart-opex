@@ -41,7 +41,7 @@ function escapeTableName(name: string) {
   return name
 }
 
-async function run() {
+export async function run() {
   const pgSourceUrl = assertRequiredEnv('PG_SOURCE_URL')
   const mssqlTargetUrl = assertRequiredEnv('MSSQL_TARGET_URL')
   const reportPath = process.env.MIGRATION_VALIDATION_REPORT_PATH
@@ -112,7 +112,9 @@ async function run() {
   console.log('Validation passed: all row counts match.')
 }
 
-run().catch((error) => {
-  console.error('Validation failed:', error)
-  process.exit(1)
-})
+if (typeof require !== 'undefined' && require.main === module) {
+  run().catch((error) => {
+    console.error('Validation failed:', error)
+    process.exit(1)
+  })
+}
