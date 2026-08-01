@@ -25,6 +25,7 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -32,13 +33,13 @@
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
-    "@nestjs/bullmq": "^11.0.4",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.20.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "exceljs": "^4.4.0",
     "ioredis": "^5.4.1",
+    "ldapts": "^8.2.0",
     "multer": "^2.0.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

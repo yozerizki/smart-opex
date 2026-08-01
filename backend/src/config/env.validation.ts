@@ -21,6 +21,7 @@ export function validateEnvironment(env: Record<string, string | undefined>) {
     requireTrimmedValue(env, 'LDAP_BASE_DN', errors)
     requireTrimmedValue(env, 'LDAP_BIND_DN', errors)
     requireTrimmedValue(env, 'LDAP_BIND_PASSWORD', errors)
+    requireTrimmedValue(env, 'LOCAL_AUTH_EMAILS', errors)
   }
 
   if (errors.length > 0) {
