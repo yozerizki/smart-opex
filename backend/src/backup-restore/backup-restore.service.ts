@@ -13,6 +13,9 @@ import { randomUUID } from 'crypto'
 const BACKUP_DIR_NAME = 'backups'
 const BACKUP_FILENAME = 'smartopex-backup.tar.gz'
 const BACKUP_JSON_FILENAME = 'backup-data.json'
+const SAFE_TABLE_NAME = /^[a-z_]+$/
+
+type DatabaseProvider = 'postgresql' | 'sqlserver'
 
 @Injectable()
 export class BackupRestoreService {
@@ -230,8 +233,31 @@ export class BackupRestoreService {
   }
 
   private async resetSequence(tx: any, tableName: string) {
+    if (!SAFE_TABLE_NAME.test(tableName)) {
+      throw new InternalServerErrorException(`Nama tabel tidak valid: ${tableName}`)
+    }
+
+    const provider = this.getDatabaseProvider()
+
+    if (provider === 'sqlserver') {
+      await tx.$executeRawUnsafe(
+        `DECLARE @maxId BIGINT;
+         SELECT @maxId = ISNULL(MAX([id]), 0) FROM [${tableName}];
+         DBCC CHECKIDENT ('${tableName}', RESEED, @maxId);`,
+      )
+      return
+    }
+
     await tx.$executeRawUnsafe(
       `SELECT setval(pg_get_serial_sequence('"${tableName}"', 'id'), COALESCE((SELECT MAX(id) FROM "${tableName}"), 1), (SELECT COUNT(*) > 0 FROM "${tableName}"));`,
     )
+  }
+
+  private getDatabaseProvider(): DatabaseProvider {
+    const databaseUrl = process.env.DATABASE_URL || ''
+    if (databaseUrl.startsWith('sqlserver://')) {
+      return 'sqlserver'
+    }
+    return 'postgresql'
   }
 }
