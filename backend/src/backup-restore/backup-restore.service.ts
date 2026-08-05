@@ -53,6 +53,20 @@ export class BackupRestoreService {
     }
   }
 
+  async getExistingBackupArchive() {
+    if (!fs.existsSync(this.backupFilePath)) {
+      throw new BadRequestException('File backup belum tersedia')
+    }
+
+    const stat = fs.statSync(this.backupFilePath)
+    const timestamp = stat.mtime.toISOString().replace(/[.:]/g, '-')
+
+    return {
+      filePath: this.backupFilePath,
+      downloadName: `smartopex-backup-${timestamp}.tar.gz`,
+    }
+  }
+
   async createBackupArchive() {
     fs.mkdirSync(this.uploadsRootPath, { recursive: true })
     fs.mkdirSync(this.backupDirPath, { recursive: true })
@@ -82,21 +96,17 @@ export class BackupRestoreService {
 
       fs.writeFileSync(backupJsonPath, JSON.stringify(backupPayload), 'utf8')
 
-      execFileSync(
-        'tar',
-        [
-          '--exclude=uploads/backups',
-          '-czf',
-          this.backupFilePath,
-          '-C',
-          process.cwd(),
-          'uploads',
-          '-C',
-          tempFolder,
-          BACKUP_JSON_FILENAME,
-        ],
-        { stdio: 'pipe' },
-      )
+      this.runTar([
+        '--exclude=uploads/backups',
+        '-czf',
+        this.backupFilePath,
+        '-C',
+        process.cwd(),
+        'uploads',
+        '-C',
+        tempFolder,
+        BACKUP_JSON_FILENAME,
+      ])
 
       const timestamp = new Date().toISOString().replace(/[.:]/g, '-')
       return {
@@ -115,12 +125,22 @@ export class BackupRestoreService {
       throw new BadRequestException('File backup belum tersedia')
     }
 
+    return this.restoreFromArchiveFile(this.backupFilePath)
+  }
+
+  async restoreFromUploadedArchive(uploadedArchivePath: string) {
+    if (!uploadedArchivePath || !fs.existsSync(uploadedArchivePath)) {
+      throw new BadRequestException('File upload backup tidak tersedia')
+    }
+
+    return this.restoreFromArchiveFile(uploadedArchivePath)
+  }
+
+  private async restoreFromArchiveFile(archiveFilePath: string) {
     const tempFolder = fs.mkdtempSync(join(tmpdir(), `smartopex-restore-${randomUUID()}-`))
 
     try {
-      execFileSync('tar', ['-xzf', this.backupFilePath, '-C', tempFolder], {
-        stdio: 'pipe',
-      })
+      this.runTar(['-xzf', archiveFilePath, '-C', tempFolder])
 
       const backupJsonPath = join(tempFolder, BACKUP_JSON_FILENAME)
       if (!fs.existsSync(backupJsonPath)) {
@@ -259,5 +279,16 @@ export class BackupRestoreService {
       return 'sqlserver'
     }
     return 'postgresql'
+  }
+
+  private runTar(args: string[]) {
+    try {
+      execFileSync('tar', args, { stdio: 'pipe' })
+    } catch (error: any) {
+      if (error?.code === 'ENOENT') {
+        throw new InternalServerErrorException('Binary tar tidak ditemukan di server. Install tar dan pastikan tersedia di PATH.')
+      }
+      throw error
+    }
   }
 }
